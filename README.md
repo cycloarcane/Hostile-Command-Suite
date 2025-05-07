@@ -11,7 +11,7 @@
 
 *Author:* **cycloarcane**
 *Contact:* [cycloarkane@gmail.com](mailto:cycloarkane@gmail.com)
-*License:* MIT (see LICENSE when we add it)
+*License:* PolyForm Noncommercial License 1.0.0
 
 **Hostile‑Command‑Suite (HCS)** is an extensible set of command‑line micro‑services (MCP servers) for open‑source intelligence and—soon—penetration‑testing workflows.  Each tool is wrapped in a fastMCP façade so a chatbot (or any JSON‑RPC client) can drive it securely and receive structured JSON back.  Postgres stores every result so no clue is lost.
 
@@ -125,4 +125,4 @@ Bug reports or feature ideas?  Open an issue or mail [cycloarkane@gmail.com](mai
 
 ---
 
-*We bind the darkness to our will so you can **weaponise knowledge**—ethically, of course.*
+**weaponise knowledge** - *ethically, of course.*
