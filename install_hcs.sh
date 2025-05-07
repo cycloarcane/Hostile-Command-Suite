@@ -61,22 +61,39 @@ install_aur_pkgs() {
 }
 
 setup_postgres() {
-  if [ ! -d /var/lib/postgres/data ]; then
+  local PGDATA=/var/lib/postgres/data
+  local SVC=postgresql
+
+  # 1. initialise only once
+  if [ ! -f "${PGDATA}/PG_VERSION" ]; then
     log "Initialising PostgreSQL cluster"
-    sudo -iu postgres initdb -D /var/lib/postgres/data
+    sudo -iu postgres initdb -D "${PGDATA}"
+  else
+    log "PostgreSQL cluster already initialised – skipping initdb"
   fi
-  sudo systemctl enable --now postgresql
 
-  if ! sudo -iu postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}';" | grep -q 1; then
+  # 2. ensure service is running
+  sudo systemctl enable --now "${SVC}"
+
+  # 3. wait until the socket responds
+  log "Waiting for Postgres to accept connections..."
+  until sudo -iu postgres pg_isready -q; do sleep 0.5; done
+
+  # 4. idempotent role & db creation
+  if ! sudo -iu postgres psql -tAc \
+        "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}';" | grep -q 1; then
     log "Creating role ${DB_USER}"
-    sudo -iu postgres psql -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASS}';"
+    sudo -iu postgres psql -c \
+      "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASS}';"
   fi
 
-  if ! sudo -iu postgres psql -lqt | cut -d \| -f 1 | grep -qw "${DB_NAME}"; then
+  if ! sudo -iu postgres psql -lqt | cut -d\| -f1 | grep -qw "${DB_NAME}"; then
     log "Creating database ${DB_NAME}"
     sudo -iu postgres createdb -O "${DB_USER}" "${DB_NAME}"
   fi
 }
+
+
 
 create_venv() {
   log "Creating Python virtualenv in ${VENV_DIR}"
