@@ -1,0 +1,65 @@
+# PolyForm Noncommercial License 1.0.0
+
+Copyright (c) 2025 cycloarcane
+
+### 1. Purpose
+
+This license allows you to use, share, and modify the software for **noncommercial purposes** while preserving credit to the original author. Commercial use requires a separate commercial license.
+
+### 2. Acceptance
+
+By using the software, you agree to the terms of this license.
+
+### 3. Copyright Grant
+
+Subject to the limitations of Section 5, the copyright holders grant you a non‑exclusive, worldwide, royalty‑free copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, and distribute the software and modified versions.
+
+### 4. Patent Grant
+
+Subject to the limitations of Section 5, the copyright holders grant you a non‑exclusive, worldwide, royalty‑free patent license under licensed patents to make, have made, use, sell, offer to sell, and import the software and derivative works.
+
+### 5. Noncommercial Limitation
+
+**Any** use of the software that is directly or indirectly intended for, or directed toward, commercial advantage or monetary compensation requires **separate written permission** from the copyright holders.  Examples of noncommercial use include:
+
+* Personal projects and portfolios
+* Academic or research use
+* Open‑source or community projects distributed free of charge
+* Internal evaluation or prototyping that is not sold or deployed as part of a commercial service
+
+If you are unsure whether your use is noncommercial, contact the copyright holders at [cycloarkane@gmail.com](mailto:cycloarkane@gmail.com).
+
+### 6. Trademarks
+
+This license does not grant permission to use the copyright holders’ names, logos, or trademarks.
+
+### 7. Warranty Disclaimer
+
+THE SOFTWARE IS PROVIDED “AS IS” AND WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.  THE AUTHORS DISCLAIM ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.  THE AUTHORS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+### 8. Termination
+
+If you violate the terms of this license, your rights will terminate automatically.  However, violations that you can cure will be forgiven **if you cease all violations within 30 days of learning** of the violation.
+
+### 9. Severability
+
+If any provision of this license is held to be unenforceable, the remaining provisions will remain in effect.
+
+### 10. Governing Law
+
+This license is governed by and interpreted in accordance with the laws of Switzerland, excluding its conflict‑of‑law principles.
+
+### 11. Definitions
+
+**“Contributor”** means each individual or legal entity that creates, contributes to the creation of, or owns part of the software.
+
+**“Licensed patents”** means all patents that a contributor can license, which either:
+
+1. claim or read on the software or
+2. would be infringed by the normal use of the software.
+
+**“You”** means any person or legal entity that exercises rights under this license.
+
+---
+
+For a commercial license, sponsorship opportunities, or custom terms, please contact [cycloarkane@gmail.com](mailto:cycloarkane@gmail.com).
