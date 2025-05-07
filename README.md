@@ -35,6 +35,37 @@ Hostile-Command-Suite/
 
 ## Quick‑start
 
+### 🔥 One-command install
+
+If you just want everything set up in one go, clone the repo and run the bundling script:
+
+```bash
+git clone https://github.com/cycloarcane/Hostile-Command-Suite.git
+cd Hostile-Command-Suite
+chmod +x install_hcs.sh   # already in the repo root
+./install_hcs.sh          # grab coffee ☕
+```
+
+`install_hcs.sh` will:
+
+1. Update the system and install core build/runtime packages.
+2. Install **yay** if missing, then pull every AUR tool HCS needs.
+3. Initialise PostgreSQL, create the `osint_user/osint_db` combo, and start the service.
+4. Set up a project-local Python virtualenv with all pip dependencies.
+5. Clone **GHunt** and install its requirements.
+
+After it finishes, load the DSN and activate the venv:
+
+```bash
+export OSINT_PG_DSN="dbname=osint_db user=osint_user password=changeme host=/var/run/postgresql"
+source .venv/bin/activate
+```
+
+You’re now ready to launch any MCP wrapper (e.g. `python OSINT/email_osint.py`) or plug the suite straight into your chatbot.
+
+
+### Manual Install
+
 ```bash
 # 0. Arch prerequisites (base + yay assumed)
 sudo pacman -Syu --needed base-devel git python python-pip python-virtualenv postgresql
