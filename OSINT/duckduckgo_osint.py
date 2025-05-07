@@ -12,7 +12,7 @@ Dependencies:
 No API key required.
 """
 from fastmcp import FastMCP
-from duckduckgo_search import ddg  # noqa: E402
+import duckduckgo_search  # noqa: E402
 import os, json, psycopg2  # noqa: E402
 
 mcp = FastMCP("duckduckgo")  # the route name exposed to the orchestrator
