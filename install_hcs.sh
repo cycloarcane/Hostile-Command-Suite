@@ -10,14 +10,13 @@ IFS=$'\n\t'
 # -------------------------------------------------------------------
 AUR_PKGS=(
   spiderfoot
-  recon-ng-git
+  recon-ng
   phoneinfoga-bin
-  theharvester
+  #theharvester-git
   mosint
   holehe
   sherlock-git
-  osintgram
-  twint
+  #twint
 )
 PY_PKGS=(
   fastmcp
@@ -41,8 +40,7 @@ need_cmd() { command -v "$1" &>/dev/null; }
 
 install_base() {
   log "Updating system and installing base packages"
-  sudo pacman -Sy --noconfirm --needed base-devel git python python-pip \
-                                      python-virtualenv postgresql
+  sudo pacman -Sy --noconfirm --needed base-devel git python python-pip python-virtualenv postgresql
 }
 
 install_yay() {
@@ -95,7 +93,7 @@ install_ghunt() {
     git clone https://github.com/mxrch/GHunt "${GHUNT_DIR}"
     pushd "${GHUNT_DIR}" >/dev/null
     # reuse venv
-    pip install -r requirements.txt
+    # pip install -r requirements.txt
     popd >/dev/null
   else
     log "GHunt already cloned"
