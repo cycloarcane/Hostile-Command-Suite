@@ -13,8 +13,6 @@
 *Contact:* [cycloarkane@gmail.com](mailto:cycloarkane@gmail.com)
 *License:* PolyForm Noncommercial License 1.0.0
 
-**Hostile‑Command‑Suite (HCS)** is an extensible set of command‑line micro‑services (MCP servers) for open‑source intelligence and—soon—penetration‑testing workflows.  Each tool is wrapped in a fastMCP façade so a chatbot (or any JSON‑RPC client) can drive it securely and receive structured JSON back.  Postgres stores every result so no clue is lost.
-
 ---
 
 ## Repo Layout
@@ -22,12 +20,11 @@
 ```
 Hostile-Command-Suite/
 ├── OSINT/                 # finished micro‑services + config
-│   ├── config.json        # MCP server manifest
-│   ├── db_schema.sql      # CREATE TABLE osint_results ...
 │   ├── email_osint.py     # Mosint / Holehe / h8mail aggregator
 │   ├── phone_osint.py     # PhoneInfoga wrapper
 │   └── username_osint.py  # Sherlock wrapper
 ├── PEN-TEST/              # ✨ reserved: coming soon
+├── osint_config.json      # OSINT MCP server manifest
 └── README.md              # you are here
 ```
 
@@ -35,7 +32,7 @@ Hostile-Command-Suite/
 
 ## Quick‑start
 
-*For email_osint you need to make a .mosint.yaml file in your home directory with mosint's config (see [Mosint docs](https://github.com/mosint/mosint#configuration)).*
+*For email_osint you need to make a .mosint.yaml file in your home directory with mosint's config (see [Mosint docs](https://github.com/alpkeskin/mosint)).*
 
 ### 🔥 One-command install
 
@@ -52,45 +49,29 @@ chmod +x install_hcs.sh   # already in the repo root
 
 1. Update the system and install core build/runtime packages.
 2. Install **yay** if missing, then pull every AUR tool HCS needs.
-3. Initialise PostgreSQL, create the `osint_user/osint_db` combo, and start the service.
 4. Set up a project-local Python virtualenv with all pip dependencies.
 5. Clone **GHunt** and install its requirements.
 
-After it finishes, load the DSN and activate the venv:
-
 ```bash
-export OSINT_PG_DSN="dbname=osint_db user=osint_user password=changeme host=/var/run/postgresql"
 source .venv/bin/activate
 ```
 
 You’re now ready to launch any MCP wrapper (e.g. `python OSINT/email_osint.py`) or plug the suite straight into your chatbot.
 
-
 ### Manual Install
 
 ```bash
 # 0. Arch prerequisites (base + yay assumed)
-sudo pacman -Syu --needed base-devel git python python-pip python-virtualenv postgresql
 
 # 1. Clone + create virtualenv
  git clone https://github.com/cycloarcane/Hostile-Command-Suite.git
  cd Hostile-Command-Suite
  python -m venv .venv && source .venv/bin/activate && pip install --upgrade pip
 
-# 2. Install Postgres + schema
- sudo -iu postgres initdb -D /var/lib/postgres/data
- sudo systemctl enable --now postgresql
- sudo -iu postgres psql -c "CREATE ROLE osint_user LOGIN PASSWORD 'changeme';"
- sudo -iu postgres createdb -O osint_user osint_db
- psql -U osint_user -d osint_db -f OSINT/db_schema.sql
-
 # 3. Grab toolchain (AUR helpers shown; swap for paru/pikaur if you like)
- yay -S spiderfoot recon-ng-git phoneinfoga-bin theharvester mosint holehe sherlock-git osintgram twint
+ yay -S spiderfoot recon-ng-git phoneinfoga-bin h8mail mosint holehe sherlock-git osintgram twint
  pip install h8mail instaloader social-analyzer
  git clone https://github.com/mxrch/GHunt ~/GHunt && pip install -r ~/GHunt/requirements.txt
-
-# 4. Export DSN (or use .pgpass / peer auth)
- export OSINT_PG_DSN="dbname=osint_db user=osint_user password=changeme host=/var/run/postgresql"
 
 # 5. Launch a tool (stdin JSON‑RPC)
 echo '{"method":"mosint","params":["alice@example.com"]}' | \
