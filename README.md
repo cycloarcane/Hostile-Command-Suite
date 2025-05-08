@@ -35,6 +35,8 @@ Hostile-Command-Suite/
 
 ## Quick‑start
 
+*For email_osint you need to make a .mosint.yaml file in your home directory with mosint's config (see [Mosint docs](https://github.com/mosint/mosint#configuration)).*
+
 ### 🔥 One-command install
 
 If you just want everything set up in one go, clone the repo and run the bundling script:
