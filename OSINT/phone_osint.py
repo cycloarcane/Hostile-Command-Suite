@@ -1,36 +1,64 @@
 #!/usr/bin/env python3
 """
 phone_osint.py — FastMCP wrapper for *phoneinfoga-bin* (Go v3+)
+with automatic follow-up of the Google dork links it emits.
 
-Exposed MCP tools
-──────────────────
-▸ check_tools_installation()                 → verify phoneinfoga-bin is present
-▸ scan_phone_phoneinfoga(number, timeout=60) → run one scan, return JSON + summary
-▸ scan_phone_all(number, timeout=60)         → alias, handy if you add more tools
+MCP tools
+─────────
+▸ check_tools_installation()                 → confirm phoneinfoga-bin is present
+▸ scan_phone_phoneinfoga(number, timeout=60) → run one scan + follow the links
+▸ scan_phone_all(number, timeout=60)         → alias (in case you add more tools)
 
-Requires:
-    • Arch / AUR package  : phoneinfoga-bin
-      (or any other v3 build named 'phoneinfoga-bin' on PATH)
+Dependencies (all pure-python, arch package names in brackets)
+──────────────────────────────────────────────────────────────
+• requests        (python-requests)
+• beautifulsoup4  (python-beautifulsoup4)
+
+Scraping disclaimer
+───────────────────
+Fetching Google search URLs may trigger CAPTCHAs or 403s.  This wrapper
+handles common HTTP errors quietly but does **not** attempt to bypass
+rate-limits or captchas.  For heavy use, consider the official
+[Custom Search JSON API] or another OSINT source.
+
+[Custom Search JSON API]: https://developers.google.com/custom-search/v1/overview
 """
 
+import html
 import json
 import re
 import shutil
 import subprocess
-from typing import Dict, Union, Optional
+import time
+from typing import Dict, List, Union
 
+import requests
+from bs4 import BeautifulSoup
 from fastmcp import FastMCP
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Constants & helpers
+# Configuration
 # ──────────────────────────────────────────────────────────────────────────────
-CLI = "phoneinfoga-bin"  # hard-coded; no fallbacks
+CLI = "phoneinfoga-bin"                   # no fallback, it must exist
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0"
+    )
+}
+REQUEST_TIMEOUT = 10                      # seconds
+REQUEST_SLEEP = 2                         # polite gap between hits
+MAX_LINKS = 40                            # safety net: stop after this many URLs
 
-_PHONE_RE = re.compile(r"^\+?\d[\d\s\-.]{5,20}$")  # loose sanity check
+_PHONE_RE = re.compile(r"^\+?\d[\d\s\-.]{5,20}$")     # loose sanity check
+_URL_RE = re.compile(r"https?://[^\s)\"'>]+")
+
+mcp = FastMCP("phone")                    # route => /phone on MCP
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────────────────────────────────────────
 def _cli_available() -> bool:
-    """True if phoneinfoga-bin is on PATH and executable."""
     return shutil.which(CLI) is not None
 
 
@@ -38,32 +66,49 @@ def _missing_msg() -> Dict[str, str]:
     return {
         "status": "missing_tools",
         "message": (
-            "phoneinfoga-bin not found on PATH.\n"
+            "phoneinfoga-bin not found on PATH.  "
             "Install it (e.g. `yay -S phoneinfoga-bin`) or add it to $PATH."
         ),
     }
 
 
-def _summary_from_json(data: Dict) -> Dict:
-    """Pull a small, stable subset of keys out of PhoneInfoga’s JSON."""
-    return {
-        "valid": data.get("valid"),
-        "international_format": data.get("internationalNumber"),
-        "carrier": data.get("carrier"),
-        "region": data.get("region"),
-        "line_type": data.get("line_type", data.get("type")),
-    }
+def _normalise_number(num: str) -> str:
+    """ Strip spaces, dashes & dots so '+1 234-567.890' → '+1234567890'. """
+    return re.sub(r"[ \-.]", "", num)
+
+
+def _filter_links(number: str, urls: List[str]) -> List[str]:
+    """
+    Download each URL once, keep the ones where the phone number string
+    (normalised) **appears in the HTML**.
+
+    Returns just the 'hits'.
+    """
+    hits: List[str] = []
+    norm_num = _normalise_number(number)
+
+    for idx, url in enumerate(urls[:MAX_LINKS], 1):
+        try:
+            time.sleep(REQUEST_SLEEP)           # play nice
+            r = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            if r.status_code != 200:
+                continue
+
+            text = html.unescape(r.text).lower()
+            if norm_num.lower() in text:
+                hits.append(url)
+
+        except requests.RequestException:
+            continue
+
+    return hits
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# FastMCP service
+# MCP tools
 # ──────────────────────────────────────────────────────────────────────────────
-mcp = FastMCP("phone")  # route → /phone
-
-
 @mcp.tool()
 def check_tools_installation() -> Dict[str, Union[str, bool]]:
-    """Return 'ok' if phoneinfoga-bin is available, else install hint."""
     if _cli_available():
         return {"status": "ok", "cli": CLI}
     return _missing_msg()
@@ -73,13 +118,12 @@ def check_tools_installation() -> Dict[str, Union[str, bool]]:
 def scan_phone_phoneinfoga(
     number: str,
     timeout: int = 60,
-) -> Dict[str, Union[str, Dict]]:
+) -> Dict[str, Union[str, List[str], Dict]]:
     """
-    Run *one* PhoneInfoga scan and return:
-        status   : success | partial_success | error
-        summary  : small dict (on success)
-        data     : full JSON (on success)
-        raw_output: first 10 kB of stdout (on parse error)
+    1. Run `phoneinfoga-bin scan -n <number>`
+    2. Extract HTTP/HTTPS URLs from stdout
+    3. Fetch each URL (with polite delay) and keep only those pages where the
+       phone number itself appears in the HTML.
     """
     if not _cli_available():
         return _missing_msg()
@@ -88,6 +132,7 @@ def scan_phone_phoneinfoga(
     if not _PHONE_RE.fullmatch(number):
         return {"status": "error", "message": "Invalid phone number format"}
 
+    # 1. Run PhoneInfoga
     try:
         proc = subprocess.run(
             [CLI, "scan", "-n", number],
@@ -106,23 +151,28 @@ def scan_phone_phoneinfoga(
             "message": f"{CLI} exited {proc.returncode}: {proc.stderr.strip()[:800]}",
         }
 
-    stdout = proc.stdout.strip()
+    stdout = proc.stdout
 
-    try:
-        data = json.loads(stdout)
-    except json.JSONDecodeError as err:
-        return {
-            "status": "partial_success",
-            "message": f"Output was not valid JSON: {err}",
-            "raw_output": stdout[:10000],
-        }
+    # 2. Extract URLs
+    urls = _URL_RE.findall(stdout)
+    urls = list(dict.fromkeys(urls))  # deduplicate while preserving order
+
+    # 3. Follow & filter
+    links_with_hits = _filter_links(number, urls)
+
+    summary = {
+        "total_links": len(urls),
+        "links_with_hits": len(links_with_hits),
+    }
 
     return {
         "status": "success",
         "number": number,
         "tool": CLI,
-        "summary": _summary_from_json(data),
-        "data": data,
+        "summary": summary,
+        "links_all": urls,
+        "links_with_hits": links_with_hits,
+        "raw_output": stdout,     # keep original text for reference
     }
 
 
@@ -130,10 +180,9 @@ def scan_phone_phoneinfoga(
 def scan_phone_all(
     number: str,
     timeout: int = 60,
-) -> Dict[str, Union[str, Dict]]:
+) -> Dict[str, Union[str, List[str], Dict]]:
     """
-    Convenience wrapper (mirrors email_osint’s style).
-    For now it just calls PhoneInfoga, but you can bolt on more tools later.
+    Mimics email_osint’s *search_email_all*.  For now it only calls PhoneInfoga.
     """
     res = scan_phone_phoneinfoga(number, timeout)
     overall = {
