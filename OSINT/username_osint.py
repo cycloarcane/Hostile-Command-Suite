@@ -27,14 +27,14 @@ def sherlock_installed() -> bool:
         return False
 
 @mcp.tool()
-def search_username(username: str, timeout: Optional[int] = 60, print_all: bool = False, 
-                   only_found: bool = True, nsfw: bool = False) -> Dict[str, Union[str, List[Dict[str, str]]]]:
+def search_username(username: str, timeout: Optional[int] = 120, print_all: bool = False, 
+                   only_found: bool = True, nsfw: bool = True) -> Dict[str, Union[str, List[Dict[str, str]]]]:
     """
     Search for a username across social networks using Sherlock.
     
     Args:
         username: The username to search for
-        timeout: Time in seconds to wait before giving up on a request (default: 60)
+        timeout: Time in seconds to wait before giving up on a request (default: 120)
         print_all: Include sites where the username was not found in results (default: False)
         only_found: Only return sites where the username was found (default: True)
         nsfw: Include NSFW sites in the search (default: False) - use --nsfw flag if True (always do this)
