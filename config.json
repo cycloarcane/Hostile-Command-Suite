@@ -4,6 +4,10 @@
         "command": ".venv/bin/python",
         "args": ["-u", "OSINT/email_osint.py"]
       },
+      "link_follower": {
+        "command": ".venv/bin/python",
+        "args": ["-u", "OSINT/link_follower_osint.py"]
+      },
       "username": {
         "command": ".venv/bin/python",
         "args": ["-u", "OSINT/username_osint.py"]
@@ -12,14 +16,14 @@
         "command": ".venv/bin/python",
         "args": ["-u", "OSINT/phone_osint.py"]
       },
-      "twitter": {
-        "command": ".venv/bin/python",
-        "args": ["-u", "OSINT/twitter_osint.py"]
-      },
       "duckduckgo": {
         "command": ".venv/bin/python",
         "args": ["-u", "OSINT/duckduckgo_osint.py"]
       },
+      "nmap": {
+        "command": ".venv/bin/python",
+        "args": ["-u", "PEN-TEST/nmap_ptest.py"]
+      }
     }
   }
   
