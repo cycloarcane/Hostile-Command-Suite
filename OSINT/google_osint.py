@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-google_osint.py — Google Custom Search API wrapper with caching and pagination
+google_osint.py — Google Custom Search API wrapper with caching, pagination,
+and relevance ranking
 
-FastMCP tool
+FastMCP tools
 ────────────
     search_google_text(query, max_results=50, …)
+    search_with_relevance(query, max_results=50, relevance_keywords=None, …)
 
 Returns
 ───────
@@ -29,6 +31,7 @@ import sys
 import time
 import hashlib
 import argparse
+import re
 from typing import Any, Dict, List, Optional
 import logging
 import requests
@@ -207,6 +210,57 @@ def _execute_google_search(
         raise
 
 
+def score_relevance(result: Dict[str, str], keywords: List[str]) -> float:
+    """
+    Score a search result based on relevance to keywords.
+    
+    Args:
+        result: Search result dictionary
+        keywords: List of keywords to score against
+        
+    Returns:
+        Relevance score (higher is more relevant)
+    """
+    score = 0.0
+    
+    # Get the text content to score
+    title = result.get("title", "").lower()
+    snippet = result.get("snippet", "").lower()
+    url = result.get("url", "").lower()
+    
+    # Score based on keyword presence
+    for keyword in keywords:
+        # Title matches are most important
+        if keyword in title:
+            score += 3.0
+        
+        # Snippet matches are next
+        if keyword in snippet:
+            score += 1.5
+        
+        # URL matches suggest relevance too
+        if keyword in url:
+            score += 1.0
+    
+    # Bonus for https (security)
+    if url.startswith("https"):
+        score += 0.5
+    
+    # Penalty for very generic or too short snippets
+    if len(snippet) < 20:
+        score -= 1.0
+    
+    # Bonus for specific file types that might have more complete information
+    if url.endswith(('.pdf', '.doc', '.docx', '.ppt', '.pptx')):
+        score += 0.5
+        
+    # Bonus for likely high-authority domains
+    if url.endswith(('.edu', '.gov', '.org')):
+        score += 1.0
+    
+    return score
+
+
 @mcp.tool()
 def search_google_text(
     query: str,
@@ -358,6 +412,119 @@ def search_google_text(
         return {"status": "error", "query": query, "message": f"unexpected: {e}"}
 
 
+@mcp.tool()
+def search_with_relevance(
+    query: str,
+    max_results: int = 50,
+    relevance_keywords: Optional[List[str]] = None,
+    safe: str = "off",
+    date_restrict: Optional[str] = None,
+    gl: Optional[str] = None,
+    lr: Optional[str] = None,
+    site_search: Optional[str] = None,
+    file_type: Optional[str] = None,
+    api_key: Optional[str] = None,
+    cx: Optional[str] = None,
+    use_cache: bool = True,
+) -> Dict[str, Any]:
+    """
+    Enhanced search that scores and ranks results by relevance to keywords.
+    
+    Args:
+        query: Search query string
+        max_results: Maximum number of results to return
+        relevance_keywords: Keywords for relevance scoring (defaults to query terms)
+        safe: SafeSearch setting ("off", "medium", "high")
+        date_restrict: Time limit for results (e.g. "d7" for past week)
+        gl: Country code for geo-location (e.g., "us", "uk")
+        lr: Language restriction (e.g., "lang_en", "lang_fr")
+        site_search: Restrict search to a specific site
+        file_type: Filter results by file type (e.g., "pdf", "doc")
+        api_key: Google API key (overrides environment variable)
+        cx: Google Custom Search Engine ID (overrides environment variable)
+        use_cache: Whether to use caching
+    
+    Returns:
+        Dict with search results ranked by relevance
+    """
+    # Default keywords are from the query if none provided
+    if not relevance_keywords:
+        relevance_keywords = [word.lower() for word in query.split() if len(word) > 2]
+    
+    # Check cache first if enabled - with different key for relevance search
+    if use_cache:
+        cache_key = _get_cache_key(
+            f"relevance_{query}", 
+            max_results=max_results,
+            relevance_keywords=relevance_keywords,
+            safe=safe,
+            date_restrict=date_restrict,
+            gl=gl,
+            lr=lr,
+            site_search=site_search,
+            file_type=file_type
+        )
+        cached_result = _get_from_cache(cache_key, 86400)  # 24 hours cache
+        if cached_result:
+            return cached_result
+    
+    # Perform the search
+    search_results = search_google_text(
+        query=query,
+        max_results=max_results,
+        safe=safe,
+        date_restrict=date_restrict,
+        gl=gl,
+        lr=lr,
+        site_search=site_search,
+        file_type=file_type,
+        api_key=api_key,
+        cx=cx,
+        use_cache=use_cache
+    )
+    
+    if search_results.get("status") != "success":
+        return search_results
+    
+    # Score and rank the results
+    results = search_results.get("results", [])
+    scored_results = []
+    
+    for result in results:
+        score = score_relevance(result, relevance_keywords)
+        scored_results.append({
+            "result": result,
+            "score": score
+        })
+    
+    # Sort by relevance score (highest first)
+    scored_results.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Create a new list with just the ranked results (no scores)
+    ranked_results = [item["result"] for item in scored_results]
+    
+    # Format results as markdown
+    md_results = [_md(r, i) for i, r in enumerate(ranked_results, 1)]
+    
+    # Return the ranked results
+    result = {
+        "status": "success",
+        "query": query,
+        "keywords_used": relevance_keywords,
+        "results": ranked_results,
+        "results_markdown": md_results,
+        "scored_results": scored_results,  # Include scores for transparency
+        "result_count": len(results),
+        "search_information": search_results.get("search_information", {})
+    }
+    
+    # Cache the relevance result if enabled
+    if use_cache:
+        _save_to_cache(cache_key, result)
+    
+    return result
+
+
 # ───────────── CLI helper (optional) ─────────────
 def _cli() -> None:
     p = argparse.ArgumentParser(description="Google Custom Search API wrapper")
@@ -375,6 +542,8 @@ def _cli() -> None:
     s.add_argument("--site", default=None, help="Site search restriction")
     s.add_argument("--filetype", default=None, help="File type filter (e.g., pdf)")
     s.add_argument("--no-cache", action="store_true", help="Disable caching")
+    s.add_argument("--with-relevance", action="store_true", help="Use relevance scoring")
+    s.add_argument("--keywords", nargs="+", help="Relevance keywords")
 
     sub.add_parser("check")
 
@@ -387,25 +556,43 @@ def _cli() -> None:
             "message": f"google_osint ready. API key: {api_key_status}, Search Engine ID: {cx_status}"
         }
     else:
-        out = search_google_text(
-            args.query,
-            max_results=args.max,
-            safe=args.safe,
-            date_restrict=args.date,
-            gl=args.gl,
-            lr=args.lr,
-            site_search=args.site,
-            file_type=args.filetype,
-            api_key=args.api_key,
-            cx=args.cx,
-            use_cache=not args.no_cache,
-        )
+        if args.with_relevance:
+            out = search_with_relevance(
+                args.query,
+                max_results=args.max,
+                relevance_keywords=args.keywords,
+                safe=args.safe,
+                date_restrict=args.date,
+                gl=args.gl,
+                lr=args.lr,
+                site_search=args.site,
+                file_type=args.filetype,
+                api_key=args.api_key,
+                cx=args.cx,
+                use_cache=not args.no_cache,
+            )
+        else:
+            out = search_google_text(
+                args.query,
+                max_results=args.max,
+                safe=args.safe,
+                date_restrict=args.date,
+                gl=args.gl,
+                lr=args.lr,
+                site_search=args.site,
+                file_type=args.filetype,
+                api_key=args.api_key,
+                cx=args.cx,
+                use_cache=not args.no_cache,
+            )
 
     print(json.dumps(out, indent=2))
 
 
 if __name__ == "__main__":
+    # Check if being run directly with command-line arguments
     if len(sys.argv) > 1 and sys.argv[1] in {"search", "check"}:
         _cli()
     else:
+        # Otherwise, run as an MCP service
         mcp.run(transport="stdio")
