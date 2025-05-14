@@ -16,11 +16,6 @@
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/duckduckgo_osint.py"]
     },
-    "tiktok": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/tiktok_osint.py"],
-      "transport": "stdio"
-    },  
     "google": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/google_osint.py"],
@@ -37,6 +32,12 @@
     "database": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/database_osint.py"]
+    },
+    "search_orchestrator": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/search_orchestrator.py"],
+      "transport": "stdio",
+      "dependencies": ["duckduckgo", "link_follower", "database"]
     }
   }
 }

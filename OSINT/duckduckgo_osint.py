@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
 duckduckgo_osint.py — DuckDuckGo wrapper with enhanced rate limit handling
+and improved relevance filtering.
 
-FastMCP tool
+FastMCP tools
 ────────────
     search_duckduckgo_text(query, max_results=20, delay=3, …)
+    search_with_relevance(query, max_results=30, relevance_keywords=None, …)
 
 Returns
 ───────
@@ -23,6 +25,7 @@ import random
 import sys
 import time
 import hashlib
+import re
 from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
@@ -149,6 +152,48 @@ def _is_rate_limit_error(exception):
         ("rate" in error_msg or "limit" in error_msg or "429" in error_msg or 
          "202" in error_msg or "403" in error_msg)
     )
+
+def score_relevance(result: Dict[str, str], keywords: List[str]) -> float:
+    """
+    Score a search result based on relevance to keywords.
+    
+    Args:
+        result: Search result dictionary
+        keywords: List of keywords to score against
+        
+    Returns:
+        Relevance score (higher is more relevant)
+    """
+    score = 0.0
+    
+    # Get the text content to score
+    title = result.get("title", "").lower()
+    snippet = result.get("snippet", "").lower()
+    url = result.get("href", "").lower()
+    
+    # Score based on keyword presence
+    for keyword in keywords:
+        # Title matches are most important
+        if keyword in title:
+            score += 3.0
+        
+        # Snippet matches are next
+        if keyword in snippet:
+            score += 1.5
+        
+        # URL matches suggest relevance too
+        if keyword in url:
+            score += 1.0
+    
+    # Bonus for https (security)
+    if url.startswith("https"):
+        score += 0.5
+    
+    # Penalty for very generic or too short snippets
+    if len(snippet) < 20:
+        score -= 1.0
+    
+    return score
 
 # Main search function with tenacity retry
 @retry(
@@ -307,6 +352,81 @@ def search_duckduckgo_text(
         logger.error(f"Unexpected error: {e}")
         return {"status": "error", "query": query, "message": f"unexpected: {e}"}
 
+@mcp.tool()
+def search_with_relevance(
+    query: str,
+    max_results: int = 30,
+    relevance_keywords: Optional[List[str]] = None, 
+    delay: float = 3.0,
+    region: str = "wt-wt",
+    safesearch: str = "moderate",
+    timelimit: Optional[str] = None,
+    use_cache: bool = True,
+) -> Dict[str, Any]:
+    """
+    Enhanced search that scores and ranks results by relevance to keywords.
+    
+    Args:
+        query: Search query string
+        max_results: Maximum number of results to return
+        relevance_keywords: Keywords for relevance scoring (defaults to query terms)
+        delay: Minimum delay between requests (seconds)
+        region: Region for search results (e.g., "wt-wt", "us-en")
+        safesearch: SafeSearch setting ("on", "moderate", "off")
+        timelimit: Time limit for results (e.g. "d" for day, "w" for week)
+        use_cache: Whether to use caching
+    
+    Returns:
+        Dict with search results ranked by relevance
+    """
+    # Default keywords are from the query if none provided
+    if not relevance_keywords:
+        relevance_keywords = [word.lower() for word in query.split() if len(word) > 2]
+    
+    # Perform the search
+    search_results = search_duckduckgo_text(
+        query=query,
+        max_results=max_results,
+        delay=delay,
+        region=region,
+        safesearch=safesearch,
+        timelimit=timelimit,
+        use_cache=use_cache
+    )
+    
+    if search_results.get("status") != "success":
+        return search_results
+    
+    # Score and rank the results
+    results = search_results.get("results", [])
+    scored_results = []
+    
+    for result in results:
+        score = score_relevance(result, relevance_keywords)
+        scored_results.append({
+            "result": result,
+            "score": score
+        })
+    
+    # Sort by relevance score (highest first)
+    scored_results.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Create a new list with just the ranked results (no scores)
+    ranked_results = [item["result"] for item in scored_results]
+    
+    # Format results as markdown
+    md_results = [_md(r, i) for i, r in enumerate(ranked_results, 1)]
+    
+    # Return the ranked results
+    return {
+        "status": "success",
+        "backend": _BACKEND,
+        "query": query,
+        "keywords_used": relevance_keywords,
+        "results": ranked_results,
+        "results_markdown": md_results,
+        "scored_results": scored_results  # Include scores for transparency
+    }
 
 # ───────────── CLI helper (optional) ─────────────
 def _cli() -> None:
@@ -324,6 +444,8 @@ def _cli() -> None:
     s.add_argument("--timelimit", choices=["d", "w", "m", "y"], default=None)
     s.add_argument("--no-cache", action="store_true", help="Disable caching")
     s.add_argument("--use-proxies", action="store_true", help="Enable proxy rotation")
+    s.add_argument("--with-relevance", action="store_true", help="Use relevance scoring")
+    s.add_argument("--keywords", nargs="+", help="Relevance keywords")
 
     sub.add_parser("check")
 
@@ -331,22 +453,36 @@ def _cli() -> None:
     if args.cmd == "check":
         out = {"status": "ok", "message": "duckduckgo_osint ready"}
     else:
-        out = search_duckduckgo_text(
-            args.query,
-            max_results=args.max,
-            delay=args.delay,
-            region=args.region,
-            safesearch=args.safesearch,
-            timelimit=args.timelimit,
-            use_cache=not args.no_cache,
-            use_proxies=args.use_proxies,
-        )
+        if args.with_relevance:
+            out = search_with_relevance(
+                args.query,
+                max_results=args.max,
+                relevance_keywords=args.keywords,
+                delay=args.delay,
+                region=args.region,
+                safesearch=args.safesearch,
+                timelimit=args.timelimit,
+                use_cache=not args.no_cache,
+            )
+        else:
+            out = search_duckduckgo_text(
+                args.query,
+                max_results=args.max,
+                delay=args.delay,
+                region=args.region,
+                safesearch=args.safesearch,
+                timelimit=args.timelimit,
+                use_cache=not args.no_cache,
+                use_proxies=args.use_proxies,
+            )
 
     print(json.dumps(out, indent=2))
 
 
 if __name__ == "__main__":
+    # Check if being run directly with command-line arguments
     if len(sys.argv) > 1 and sys.argv[1] in {"search", "check"}:
         _cli()
     else:
+        # Otherwise, run as an MCP service
         mcp.run(transport="stdio")
