@@ -566,5 +566,125 @@ def update_osint_data_verification(data_id: int, verified: bool) -> Dict[str, st
             "message": f"Failed to update verification status: {str(e)}"
         }
 
+@mcp.tool()
+def list_all_targets() -> Dict[str, Any]:
+    """
+    Retrieve a list of all targets in the database.
+    
+    Returns:
+        A dictionary with all target information
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        
+        # Get all targets
+        cur.execute("""
+        SELECT id, target_type, target_value, first_seen, last_updated, notes
+        FROM targets
+        ORDER BY id
+        """)
+        
+        targets = cur.fetchall()
+        
+        result = {
+            "status": "success",
+            "target_count": len(targets),
+            "targets": []
+        }
+        
+        for target in targets:
+            target_dict = dict(target)
+            # Format dates for JSON
+            target_dict['first_seen'] = target_dict['first_seen'].strftime('%Y-%m-%d %H:%M:%S')
+            target_dict['last_updated'] = target_dict['last_updated'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Get counts of data for this target
+            cur.execute("""
+            SELECT data_type, COUNT(*) as count
+            FROM osint_data
+            WHERE target_id = %s
+            GROUP BY data_type
+            """, (target['id'],))
+            
+            data_types = cur.fetchall()
+            target_dict['data_summary'] = [dict(dt) for dt in data_types]
+            
+            result["targets"].append(target_dict)
+        
+        cur.close()
+        conn.close()
+        
+        return result
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to retrieve targets: {str(e)}"
+        }
+
+@mcp.tool()
+def list_all_data() -> Dict[str, Any]:
+    """
+    Retrieve all OSINT data entries in the database.
+    
+    Returns:
+        A dictionary with all OSINT data entries
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        
+        # Get all data with join to targets and sources
+        cur.execute("""
+        SELECT 
+            d.id,
+            t.target_type,
+            t.target_value,
+            s.source_name,
+            s.source_type,
+            d.data_type,
+            d.data_value,
+            d.confidence,
+            d.collected_at,
+            d.verified
+        FROM 
+            osint_data d
+            JOIN targets t ON d.target_id = t.id
+            JOIN osint_sources s ON d.source_id = s.id
+        ORDER BY d.id
+        """)
+        
+        results = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        if results:
+            # Convert results to regular dictionaries
+            data_items = []
+            for result in results:
+                item = dict(result)
+                # Handle datetime objects for JSON serialization
+                item['collected_at'] = item['collected_at'].strftime('%Y-%m-%d %H:%M:%S')
+                data_items.append(item)
+            
+            return {
+                "status": "success",
+                "data_count": len(data_items),
+                "data": data_items
+            }
+        else:
+            return {
+                "status": "success",
+                "message": "No OSINT data found in the database",
+                "data_count": 0,
+                "data": []
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to retrieve OSINT data: {str(e)}"
+        }
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
