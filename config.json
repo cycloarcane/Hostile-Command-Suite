@@ -28,6 +28,10 @@
     "link_follower": {
       "command": ".venv/bin/python",
       "args": ["OSINT/link_follower_osint.py"]
+    },
+    "database": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/database_osint.py"]
     }
   }
 }
