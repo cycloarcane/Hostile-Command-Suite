@@ -16,6 +16,11 @@
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/duckduckgo_osint.py"]
     },
+    "tiktok": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/tiktok_osint.py"],
+      "transport": "stdio"
+    },  
     "google": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/google_osint.py"],
