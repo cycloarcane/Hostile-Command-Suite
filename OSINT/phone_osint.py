@@ -1,27 +1,10 @@
 #!/usr/bin/env python3
 """
 phone_osint.py — FastMCP wrapper for *phoneinfoga-bin* (Go v3+)
-with automatic follow-up of the Google dork links it emits.
+v2025-05-11 — concurrent link follow-up, progress dots, --no-follow flag.
 
-MCP tools
-─────────
-▸ check_tools_installation()                 → confirm phoneinfoga-bin is present
-▸ scan_phone_phoneinfoga(number, timeout=60) → run one scan + follow the links
-▸ scan_phone_all(number, timeout=60)         → alias (in case you add more tools)
-
-Dependencies (all pure-python, arch package names in brackets)
-──────────────────────────────────────────────────────────────
-• requests        (python-requests)
-• beautifulsoup4  (python-beautifulsoup4)
-
-Scraping disclaimer
-───────────────────
-Fetching Google search URLs may trigger CAPTCHAs or 403s.  This wrapper
-handles common HTTP errors quietly but does **not** attempt to bypass
-rate-limits or captchas.  For heavy use, consider the official
-[Custom Search JSON API] or another OSINT source.
-
-[Custom Search JSON API]: https://developers.google.com/custom-search/v1/overview
+Extra deps:
+    pacman -S python-requests python-beautifulsoup4
 """
 
 import html
@@ -29,31 +12,36 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Union
 
-import requests
-from bs4 import BeautifulSoup
+try:
+    import requests
+    from bs4 import BeautifulSoup
+except ModuleNotFoundError as e:
+    sys.stderr.write(
+        f"Missing {e.name}.  Install with `pip install requests beautifulsoup4`.\n"
+    )
+    sys.exit(1)
+
 from fastmcp import FastMCP
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Configuration
+# Config
 # ──────────────────────────────────────────────────────────────────────────────
-CLI = "phoneinfoga-bin"                   # no fallback, it must exist
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0"
-    )
-}
-REQUEST_TIMEOUT = 10                      # seconds
-REQUEST_SLEEP = 2                         # polite gap between hits
-MAX_LINKS = 40                            # safety net: stop after this many URLs
+CLI = "phoneinfoga-bin"               # hard requirement
+UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " \
+     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+HTTP_TIMEOUT = 10                     # per-request
+MAX_LINKS = 40
+MAX_WORKERS = 12
 
-_PHONE_RE = re.compile(r"^\+?\d[\d\s\-.]{5,20}$")     # loose sanity check
+_PHONE_RE = re.compile(r"^\+?\d[\d\s\-.]{5,20}$")
 _URL_RE = re.compile(r"https?://[^\s)\"'>]+")
 
-mcp = FastMCP("phone")                    # route => /phone on MCP
-
+mcp = FastMCP("phone")                # MCP route → /phone
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -65,41 +53,65 @@ def _cli_available() -> bool:
 def _missing_msg() -> Dict[str, str]:
     return {
         "status": "missing_tools",
-        "message": (
-            "phoneinfoga-bin not found on PATH.  "
-            "Install it (e.g. `yay -S phoneinfoga-bin`) or add it to $PATH."
-        ),
+        "message": "phoneinfoga-bin not found.  `yay -S phoneinfoga-bin` on Arch.",
     }
 
 
-def _normalise_number(num: str) -> str:
-    """ Strip spaces, dashes & dots so '+1 234-567.890' → '+1234567890'. """
-    return re.sub(r"[ \-.]", "", num)
+def _normalise(num: str) -> str:
+    return re.sub(r"[ \-.]", "", num).lower()
 
 
-def _filter_links(number: str, urls: List[str]) -> List[str]:
-    """
-    Download each URL once, keep the ones where the phone number string
-    (normalised) **appears in the HTML**.
+def _title(html_text: str) -> str:
+    soup = BeautifulSoup(html_text, "html.parser")
+    t = soup.title.string if soup.title and soup.title.string else ""
+    return t.strip()[:150] or "(untitled)"
 
-    Returns just the 'hits'.
-    """
-    hits: List[str] = []
-    norm_num = _normalise_number(number)
 
-    for idx, url in enumerate(urls[:MAX_LINKS], 1):
-        try:
-            time.sleep(REQUEST_SLEEP)           # play nice
-            r = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
-            if r.status_code != 200:
-                continue
+def _fetch_worker(url: str, needle: str) -> Union[None, Dict[str, str]]:
+    try:
+        r = requests.get(
+            url,
+            headers={"User-Agent": UA},
+            timeout=HTTP_TIMEOUT,
+            allow_redirects=True,
+        )
+        if r.status_code != 200:
+            return None
+        html_text = html.unescape(r.text)
+        if needle in html_text.lower():
+            return {"url": url, "title": _title(html_text)}
+    except requests.RequestException:
+        return None
+    return None
 
-            text = html.unescape(r.text).lower()
-            if norm_num.lower() in text:
-                hits.append(url)
 
-        except requests.RequestException:
-            continue
+def _follow_links(number: str, urls: List[str]) -> List[Dict[str, str]]:
+    """Return [{'url', 'title'}, …] for pages that mention the phone number."""
+    needle = _normalise(number)
+    hits: List[Dict[str, str]] = []
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(_fetch_worker, url, needle): url
+            for url in urls[:MAX_LINKS]
+        }
+
+        done = 0
+        for fut in as_completed(futures):
+            done += 1
+            # progress dot every 3 completions
+            if done % 3 == 0:
+                sys.stderr.write(".")
+                sys.stderr.flush()
+
+            res = fut.result()
+            if res:
+                hits.append(res)
+
+    if hits:
+        sys.stderr.write(f" ({len(hits)} hits)\n")
+    else:
+        sys.stderr.write(" (no hits)\n")
 
     return hits
 
@@ -109,28 +121,21 @@ def _filter_links(number: str, urls: List[str]) -> List[str]:
 # ──────────────────────────────────────────────────────────────────────────────
 @mcp.tool()
 def check_tools_installation() -> Dict[str, Union[str, bool]]:
-    if _cli_available():
-        return {"status": "ok", "cli": CLI}
-    return _missing_msg()
+    return {"status": "ok", "cli": CLI} if _cli_available() else _missing_msg()
 
 
 @mcp.tool()
 def scan_phone_phoneinfoga(
     number: str,
     timeout: int = 60,
-) -> Dict[str, Union[str, List[str], Dict]]:
-    """
-    1. Run `phoneinfoga-bin scan -n <number>`
-    2. Extract HTTP/HTTPS URLs from stdout
-    3. Fetch each URL (with polite delay) and keep only those pages where the
-       phone number itself appears in the HTML.
-    """
+    no_follow: bool = False,          # ← new cli flag
+) -> Dict[str, Union[str, List, Dict]]:
     if not _cli_available():
         return _missing_msg()
 
     number = number.strip()
     if not _PHONE_RE.fullmatch(number):
-        return {"status": "error", "message": "Invalid phone number format"}
+        return {"status": "error", "message": "Invalid phone number"}
 
     # 1. Run PhoneInfoga
     try:
@@ -141,50 +146,47 @@ def scan_phone_phoneinfoga(
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        return {"status": "error", "message": f"{CLI} timed out after {timeout}s"}
+        return {"status": "error", "message": f"{CLI} timed out ({timeout}s)"}
     except Exception as e:
-        return {"status": "error", "message": f"Could not execute {CLI}: {e}"}
+        return {"status": "error", "message": f"Exec failure: {e}"}
 
     if proc.returncode != 0:
         return {
             "status": "error",
-            "message": f"{CLI} exited {proc.returncode}: {proc.stderr.strip()[:800]}",
+            "message": f"{CLI} exit {proc.returncode}: {proc.stderr[:800]}",
         }
 
     stdout = proc.stdout
+    urls_all = list(dict.fromkeys(_URL_RE.findall(stdout)))  # dedup
 
-    # 2. Extract URLs
-    urls = _URL_RE.findall(stdout)
-    urls = list(dict.fromkeys(urls))  # deduplicate while preserving order
+    # 2. Follow links concurrently (unless --no-follow)
+    hits_info: List[Dict[str, str]] = []
+    if not no_follow and urls_all:
+        sys.stderr.write(f"[{len(urls_all)} links] fetching")
+        hits_info = _follow_links(number, urls_all)
 
-    # 3. Follow & filter
-    links_with_hits = _filter_links(number, urls)
-
-    summary = {
-        "total_links": len(urls),
-        "links_with_hits": len(links_with_hits),
-    }
+    hits_md = [
+        f"{i}. [{h['title']}]({h['url']})" for i, h in enumerate(hits_info, 1)
+    ]
 
     return {
         "status": "success",
         "number": number,
         "tool": CLI,
-        "summary": summary,
-        "links_all": urls,
-        "links_with_hits": links_with_hits,
-        "raw_output": stdout,     # keep original text for reference
+        "summary": {
+            "total_links": len(urls_all),
+            "links_with_hits": len(hits_info),
+        },
+        "links_all": urls_all,
+        "links_hits": hits_info,
+        "links_hits_markdown": hits_md,
+        "raw_output": stdout,
     }
 
 
 @mcp.tool()
-def scan_phone_all(
-    number: str,
-    timeout: int = 60,
-) -> Dict[str, Union[str, List[str], Dict]]:
-    """
-    Mimics email_osint’s *search_email_all*.  For now it only calls PhoneInfoga.
-    """
-    res = scan_phone_phoneinfoga(number, timeout)
+def scan_phone_all(number: str, timeout: int = 60, no_follow: bool = False):
+    res = scan_phone_phoneinfoga(number, timeout=timeout, no_follow=no_follow)
     overall = {
         "status": res.get("status", "error"),
         "number": number,
@@ -192,10 +194,40 @@ def scan_phone_all(
         "phoneinfoga": res,
     }
     if overall["status"] == "success":
-        overall["summary"] = res.get("summary", {})
+        overall["summary"] = res["summary"]
     return overall
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Tiny CLI for humans:  ./phone_osint.py scan [+number] [--no-follow]
+# ──────────────────────────────────────────────────────────────────────────────
+def _cli() -> None:
+    import argparse
+
+    p = argparse.ArgumentParser(description="Quick wrapper for phone OSINT")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    scan = sub.add_parser("scan", help="scan one phone number")
+    scan.add_argument("number")
+    scan.add_argument("--timeout", type=int, default=60)
+    scan.add_argument("--no-follow", action="store_true",
+                      help="skip downloading every Google link")
+
+    sub.add_parser("check", help="verify phoneinfoga-bin availability")
+
+    args = p.parse_args()
+    if args.cmd == "check":
+        out = check_tools_installation()
+    else:  # scan
+        out = scan_phone_phoneinfoga(
+            args.number, timeout=args.timeout, no_follow=args.no_follow
+        )
+
+    print(json.dumps(out, indent=2))
+
+
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    if len(sys.argv) > 1 and sys.argv[1] in {"scan", "check"}:
+        _cli()
+    else:
+        mcp.run(transport="stdio")
