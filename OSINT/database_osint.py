@@ -5,8 +5,9 @@ database_osint.py — FastMCP tool that manages storage of OSINT results in Post
 This tool provides functionality to:
 - Store collected OSINT data in a structured database
 - Query existing data by ID or target information
-- Update verification status of collected data
+- Update verification status and notes for collected data
 - Delete individual entries or clear the entire database
+- Retrieve recent search queries with pagination
 
 Dependencies:
 - psycopg2-binary (already in requirements.txt)
@@ -564,6 +565,247 @@ def update_osint_data_verification(data_id: int, verified: bool) -> Dict[str, st
         return {
             "status": "error",
             "message": f"Failed to update verification status: {str(e)}"
+        }
+
+@mcp.tool()
+def update_osint_data_notes(data_id: int, notes: str) -> Dict[str, Union[str, int]]:
+    """
+    Update the notes for a specific OSINT data entry.
+    
+    Args:
+        data_id: The ID of the OSINT data entry
+        notes: The new notes to set
+        
+    Returns:
+        A dictionary with operation status
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # First, check if the osint_data entry exists
+        cur.execute("SELECT id, target_id FROM osint_data WHERE id = %s", (data_id,))
+        result = cur.fetchone()
+        
+        if not result:
+            conn.close()
+            return {
+                "status": "error",
+                "message": f"No OSINT data found with ID: {data_id}"
+            }
+        
+        target_id = result[1]
+        
+        # Update the notes in the targets table
+        cur.execute("""
+        UPDATE targets 
+        SET notes = %s, last_updated = NOW()
+        WHERE id = %s
+        RETURNING id
+        """, (notes, target_id))
+        
+        if cur.rowcount == 0:
+            conn.rollback()
+            conn.close()
+            return {
+                "status": "error",
+                "message": f"Failed to update notes for target ID: {target_id}"
+            }
+        
+        # Mark the data as verified too
+        cur.execute("""
+        UPDATE osint_data
+        SET verified = TRUE
+        WHERE id = %s
+        RETURNING id
+        """, (data_id,))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            "status": "success",
+            "message": f"Notes updated for data ID: {data_id}",
+            "data_id": data_id,
+            "target_id": target_id
+        }
+    except Exception as e:
+        try:
+            conn.rollback()
+        except:
+            pass
+        
+        return {
+            "status": "error",
+            "message": f"Failed to update notes: {str(e)}"
+        }
+
+@mcp.tool()
+def update_target_notes(target_id: int, notes: str) -> Dict[str, Union[str, int]]:
+    """
+    Update the notes for a target.
+    
+    Args:
+        target_id: The ID of the target
+        notes: The new notes to set
+        
+    Returns:
+        A dictionary with operation status
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Check if target exists
+        cur.execute("SELECT id FROM targets WHERE id = %s", (target_id,))
+        if not cur.fetchone():
+            conn.close()
+            return {
+                "status": "error",
+                "message": f"No target found with ID: {target_id}"
+            }
+        
+        # Update the notes
+        cur.execute("""
+        UPDATE targets 
+        SET notes = %s, last_updated = NOW()
+        WHERE id = %s
+        RETURNING id
+        """, (notes, target_id))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            "status": "success",
+            "message": f"Notes updated for target ID: {target_id}",
+            "target_id": target_id
+        }
+    except Exception as e:
+        try:
+            conn.rollback()
+        except:
+            pass
+        
+        return {
+            "status": "error",
+            "message": f"Failed to update target notes: {str(e)}"
+        }
+
+@mcp.tool()
+def get_recent_searches(limit: int = 10, offset: int = 0) -> Dict[str, Any]:
+    """
+    Get a list of recent searches from the database.
+    
+    Args:
+        limit: Maximum number of recent searches to return
+        offset: Number of records to skip (for pagination)
+        
+    Returns:
+        A dictionary with recent search information
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        
+        # Get search queries with pagination
+        cur.execute("""
+        SELECT t.id as target_id, t.target_value as query, t.first_seen, t.last_updated, t.notes,
+               COUNT(d.id) as result_count
+        FROM targets t
+        JOIN osint_data d ON t.id = d.target_id
+        WHERE t.target_type = 'search_query'
+        GROUP BY t.id, t.target_value, t.first_seen, t.last_updated, t.notes
+        ORDER BY t.last_updated DESC
+        LIMIT %s OFFSET %s
+        """, (limit, offset))
+        
+        searches = []
+        for row in cur.fetchall():
+            search = dict(row)
+            # Convert datetime objects to strings for JSON serialization
+            search['first_seen'] = search['first_seen'].strftime('%Y-%m-%d %H:%M:%S')
+            search['last_updated'] = search['last_updated'].strftime('%Y-%m-%d %H:%M:%S')
+            searches.append(search)
+        
+        # Get total count for pagination
+        cur.execute("""
+        SELECT COUNT(*) as total_count 
+        FROM targets
+        WHERE target_type = 'search_query'
+        """)
+        total_count = cur.fetchone()['total_count']
+        
+        cur.close()
+        conn.close()
+        
+        return {
+            "status": "success",
+            "searches": searches,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total_count
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to retrieve recent searches: {str(e)}"
+        }
+
+@mcp.tool()
+def update_osint_data_value(data_id: int, data_value: Dict[str, Any]) -> Dict[str, Union[str, int]]:
+    """
+    Update the data_value field of an OSINT data entry.
+    
+    Args:
+        data_id: The ID of the OSINT data entry
+        data_value: The new data value to set
+        
+    Returns:
+        A dictionary with operation status
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Check if data exists
+        cur.execute("SELECT id FROM osint_data WHERE id = %s", (data_id,))
+        if not cur.fetchone():
+            conn.close()
+            return {
+                "status": "error",
+                "message": f"No OSINT data found with ID: {data_id}"
+            }
+        
+        # Update the data value
+        cur.execute("""
+        UPDATE osint_data
+        SET data_value = %s, verified = TRUE
+        WHERE id = %s
+        RETURNING id
+        """, (Json(data_value), data_id))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            "status": "success",
+            "message": f"Data value updated for ID: {data_id}",
+            "data_id": data_id
+        }
+    except Exception as e:
+        try:
+            conn.rollback()
+        except:
+            pass
+        
+        return {
+            "status": "error",
+            "message": f"Failed to update data value: {str(e)}"
         }
 
 @mcp.tool()
