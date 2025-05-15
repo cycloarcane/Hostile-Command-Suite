@@ -5,7 +5,7 @@ and improved relevance filtering.
 
 FastMCP tools
 ────────────
-    search_duckduckgo_text(query, max_results=20, delay=3, …)
+    search_duckduckgo_text(query, max_results=20, delay=8, …)
     search_with_relevance(query, max_results=30, relevance_keywords=None, …)
 
 Returns
@@ -204,7 +204,7 @@ def score_relevance(result: Dict[str, str], keywords: List[str]) -> float:
 )
 def _execute_search(
     query: str,
-    delay: float = 6.0,
+    delay: float = 8.0,
     region: str = "wt-wt",
     safesearch: str = "off",
     timelimit: Optional[str] = None,
@@ -266,7 +266,7 @@ def _execute_search(
 def search_duckduckgo_text(
     query: str,
     max_results: int = 20,
-    delay: float = 3.0,  # Increased from 2.0 to 3.0
+    delay: float = 8.0,  # Increased from 2.0 to 3.0
     region: str = "wt-wt",
     safesearch: str = "moderate",
     timelimit: Optional[str] = None,
@@ -357,7 +357,7 @@ def search_with_relevance(
     query: str,
     max_results: int = 30,
     relevance_keywords: Optional[List[str]] = None, 
-    delay: float = 3.0,
+    delay: float = 8.0,
     region: str = "wt-wt",
     safesearch: str = "moderate",
     timelimit: Optional[str] = None,
@@ -438,7 +438,7 @@ def _cli() -> None:
     s = sub.add_parser("search")
     s.add_argument("query")
     s.add_argument("--max", type=int, default=20)
-    s.add_argument("--delay", type=float, default=3.0)
+    s.add_argument("--delay", type=float, default=8.0)
     s.add_argument("--region", default="wt-wt")
     s.add_argument("--safesearch", choices=["off", "moderate", "on"], default="moderate")
     s.add_argument("--timelimit", choices=["d", "w", "m", "y"], default=None)
