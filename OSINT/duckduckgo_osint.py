@@ -1,51 +1,20 @@
 #!/usr/bin/env python3
 """
-duckduckgo_osint.py — DuckDuckGo wrapper with enhanced rate limit handling
-and improved relevance filtering.
-
-FastMCP tools
-────────────
-    search_duckduckgo_text(query, max_results=20, delay=8, …)
-    search_with_relevance(query, max_results=30, relevance_keywords=None, …)
-
-Returns
-───────
-    {
-      "status": "success",
-      "backend": "html",
-      "query": "...",
-      "results": [ {title, href, snippet}, … ],
-      "results_markdown": ["1. [Title](url) — snippet", …]
-    }
+duckduckgo_osint.py — Direct HTTP requests version to bypass rate limiting
 """
 
 import json
 import os
-import random
 import sys
 import time
 import hashlib
-import re
-from typing import Any, Dict, List, Optional
-
-from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
-from duckduckgo_search.exceptions import DuckDuckGoSearchException
-from fastmcp import FastMCP
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception,
-    RetryError,
-    before_sleep_log
-)
-
-# Define our own rate limit exception in case it's not in the library
-class RateLimitException(DuckDuckGoSearchException):
-    """Custom exception for rate limiting"""
-    pass
 import logging
+import random
+import re
+import requests
+from typing import Dict, List, Any, Optional
+from bs4 import BeautifulSoup
+from fastmcp import FastMCP
 
 # Configure logging
 logging.basicConfig(
@@ -54,43 +23,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("duckduckgo_osint")
 
-mcp = FastMCP("duckduckgo")          # MCP route → /duckduckgo
-_BACKEND = "html"
-_LAST_CALL_AT: float = 0.0           # global for simple throttle
-_CONSECUTIVE_FAILURES: int = 0       # track consecutive failures for adaptive delay
-_MAX_CONSECUTIVE_FAILURES: int = 3   # threshold to increase delay
+mcp = FastMCP("duckduckgo")  # MCP route → /duckduckgo
 _CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 os.makedirs(_CACHE_DIR, exist_ok=True)
 
-# Create a list of proxy servers to rotate through (replace with your actual proxies)
-_PROXY_LIST = [
-    # Example format:
-    # "socks5://user:pass@proxy1.example.com:1080",
-    # "http://user:pass@proxy2.example.com:3128",
-    # "tb"  # Alias for Tor Browser (socks5://127.0.0.1:9150)
-]
-
-def _adaptive_rate_limit(delay: float) -> None:
-    """
-    Adaptive rate limiting with progressive backoff based on failure history
-    """
-    global _LAST_CALL_AT, _CONSECUTIVE_FAILURES
-    
-    # Increase delay if we've had consecutive failures
-    if _CONSECUTIVE_FAILURES >= _MAX_CONSECUTIVE_FAILURES:
-        adaptive_delay = delay * (1.5 ** min(_CONSECUTIVE_FAILURES, 5))
-        # Add jitter to prevent synchronized retries
-        adaptive_delay += random.uniform(0, 1)
-    else:
-        adaptive_delay = delay
-    
-    # Calculate wait time
-    wait = _LAST_CALL_AT + adaptive_delay - time.time()
-    if wait > 0:
-        logger.debug(f"Rate limiting: waiting {wait:.2f} seconds")
-        time.sleep(wait)
-    
-    _LAST_CALL_AT = time.time()
+# Global timestamp of last successful search
+_LAST_SUCCESSFUL_SEARCH = 0
+_MIN_SEARCH_INTERVAL = 60  # Increased to 60 seconds
 
 def _clean(html_snippet: str) -> str:
     """Clean HTML from snippets"""
@@ -136,34 +75,77 @@ def _save_to_cache(cache_key: str, data: Dict[str, Any]) -> None:
     except IOError as e:
         logger.warning(f"Cache write error: {e}")
 
-def _get_next_proxy() -> Optional[str]:
-    """Get the next proxy from rotation"""
-    if not _PROXY_LIST:
-        return None
-    
-    return random.choice(_PROXY_LIST)
-
-def _is_rate_limit_error(exception):
-    """Check if the exception is a rate limit error"""
-    # Look for rate limit indicators in exception message
-    error_msg = str(exception).lower()
-    return (
-        isinstance(exception, DuckDuckGoSearchException) and 
-        ("rate" in error_msg or "limit" in error_msg or "429" in error_msg or 
-         "202" in error_msg or "403" in error_msg)
-    )
-
-def score_relevance(result: Dict[str, str], keywords: List[str]) -> float:
+def format_boolean_search(query, boolean_mode="default"):
     """
-    Score a search result based on relevance to keywords.
+    Format a search query with boolean operators for better results.
     
     Args:
-        result: Search result dictionary
-        keywords: List of keywords to score against
-        
+        query: The original search query
+        boolean_mode: The boolean formatting mode to use:
+            - "default": Add quotes around multi-word terms
+            - "strict": Use AND between all terms
+            - "site": Add site: operators if domain patterns are detected
+            - "none": No formatting, use raw query
+    
     Returns:
-        Relevance score (higher is more relevant)
+        Formatted boolean search query
     """
+    if boolean_mode == "none":
+        return query
+        
+    # Split query into terms, preserving existing quotes and operators
+    terms = []
+    in_quotes = False
+    current_term = ""
+    
+    for char in query + " ":  # Add space to process the last term
+        if char == '"':
+            in_quotes = not in_quotes
+            current_term += char
+        elif char.isspace() and not in_quotes:
+            if current_term:
+                terms.append(current_term)
+                current_term = ""
+        else:
+            current_term += char
+    
+    # Process each term according to the boolean mode
+    processed_terms = []
+    
+    for term in terms:
+        # Skip if term is already a boolean operator
+        if term.upper() in ("AND", "OR", "NOT") or term.startswith("site:"):
+            processed_terms.append(term)
+            continue
+            
+        # Handle existing quoted terms
+        if term.startswith('"') and term.endswith('"'):
+            processed_terms.append(term)
+            continue
+            
+        # Apply boolean formatting based on mode
+        if " " in term and not term.startswith('"') and boolean_mode != "none":
+            # Add quotes around multi-word terms
+            processed_terms.append(f'"{term}"')
+        elif boolean_mode == "site" and "." in term and not any(op in term for op in (":", "@")):
+            # Convert potential domains to site: operators
+            if re.match(r'^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+', term):
+                processed_terms.append(f'site:{term}')
+            else:
+                processed_terms.append(term)
+        else:
+            processed_terms.append(term)
+    
+    # Join terms with proper connectors
+    if boolean_mode == "strict":
+        result = " AND ".join(processed_terms)
+    else:
+        result = " ".join(processed_terms)
+        
+    return result
+
+def score_relevance(result: Dict[str, str], keywords: List[str]) -> float:
+    """Score a search result based on relevance to keywords."""
     score = 0.0
     
     # Get the text content to score
@@ -173,109 +155,122 @@ def score_relevance(result: Dict[str, str], keywords: List[str]) -> float:
     
     # Score based on keyword presence
     for keyword in keywords:
-        # Title matches are most important
         if keyword in title:
             score += 3.0
-        
-        # Snippet matches are next
         if keyword in snippet:
             score += 1.5
-        
-        # URL matches suggest relevance too
         if keyword in url:
             score += 1.0
     
-    # Bonus for https (security)
+    # Bonus for https
     if url.startswith("https"):
         score += 0.5
     
-    # Penalty for very generic or too short snippets
+    # Penalty for short snippets
     if len(snippet) < 20:
         score -= 1.0
     
     return score
 
-# Main search function with tenacity retry
-@retry(
-    retry=retry_if_exception(_is_rate_limit_error),
-    wait=wait_exponential(multiplier=1, min=4, max=60),
-    stop=stop_after_attempt(5),
-    before_sleep=before_sleep_log(logger, logging.INFO)
-)
-def _execute_search(
-    query: str,
-    delay: float = 8.0,
-    region: str = "wt-wt",
-    safesearch: str = "off",
-    timelimit: Optional[str] = None,
-    max_results: int = 20,
-    proxy: Optional[str] = None,
-) -> List[Dict[str, str]]:
-    """Execute the actual search with retries"""
-    global _CONSECUTIVE_FAILURES
+def direct_search(query, max_results=20):
+    """
+    Perform a search using direct HTTP requests instead of DDGS
+    """
+    # User agents list
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
+    ]
     
-    _adaptive_rate_limit(delay)
+    # Pick a random user agent
+    user_agent = random.choice(user_agents)
     
+    # Set up a session with appropriate headers
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': user_agent,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': 'https://duckduckgo.com/',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
+    })
+    
+    # Attempt to get the search page first (to set cookies)
     try:
-        with DDGS(proxy=proxy) as ddgs:
-            hits_iter = ddgs.text(
-                query,
-                region=region,
-                safesearch=safesearch,
-                timelimit=timelimit,
-                backend=_BACKEND,
-                max_results=max_results,
-            )
-            raw = list(hits_iter)
+        logger.info("Fetching DuckDuckGo homepage to set cookies")
+        response = session.get('https://duckduckgo.com/')
         
-        # Reset consecutive failures on success
-        _CONSECUTIVE_FAILURES = 0
+        # Now perform the actual search using the lite version
+        logger.info(f"Performing lite search for: {query}")
+        search_url = 'https://lite.duckduckgo.com/lite/'
+        params = {
+            'q': query,
+            'kl': 'wt-wt'  # Region parameter
+        }
         
-        # Clean the results
-        cleaned = [
-            {
-                "title": h.get("title", ""),
-                "href": h.get("href", ""),
-                "snippet": _clean(h.get("body", "")),
-            }
-            for h in raw
-        ]
+        response = session.get(search_url, params=params)
         
-        return cleaned
-        
-    except DuckDuckGoSearchException as e:
-        # Increment consecutive failures to increase backoff
-        _CONSECUTIVE_FAILURES += 1
-        error_msg = str(e).lower()
-        
-        # Check if this is likely a rate limit error
-        if "rate" in error_msg or "limit" in error_msg or "202" in error_msg or "403" in error_msg:
-            logger.warning(f"Rate limit hit (failure #{_CONSECUTIVE_FAILURES}): {e}")
-            # Wrap in our custom exception for the retry mechanism
-            raise RateLimitException(f"Rate limit detected: {e}")
+        if response.status_code == 200:
+            logger.info("Successfully received search results")
+            # Parse results with BeautifulSoup
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract results - this is specific to the lite version structure
+            results = []
+            
+            # Find all search result pairs (title/link and snippet)
+            result_links = soup.select('.result-link')
+            result_snippets = soup.select('.result-snippet')
+            
+            # Process the results - lite version has a simpler structure
+            for i, (link, snippet) in enumerate(zip(result_links, result_snippets)):
+                if i >= max_results:
+                    break
+                
+                title = link.get_text(strip=True)
+                href = link.get('href')
+                
+                # Extract and clean snippet text
+                snippet_text = snippet.get_text(strip=True)
+                
+                results.append({
+                    'title': title,
+                    'href': href,
+                    'snippet': snippet_text
+                })
+            
+            return results
         else:
-            logger.error(f"DuckDuckGo search error: {e}")
-            raise
-    
+            logger.error(f"Search request failed with status code: {response.status_code}")
+            return []
+            
     except Exception as e:
-        _CONSECUTIVE_FAILURES += 1
-        logger.error(f"Unexpected error: {e}")
-        raise
+        logger.error(f"Error during direct search: {e}")
+        return []
 
 @mcp.tool()
 def search_duckduckgo_text(
     query: str,
     max_results: int = 20,
-    delay: float = 8.0,  # Increased from 2.0 to 3.0
+    delay: float = 8.0,
     region: str = "wt-wt",
     safesearch: str = "moderate",
     timelimit: Optional[str] = None,
     use_cache: bool = True,
     cache_max_age: int = 86400,  # 24 hours in seconds
     use_proxies: bool = False,
+    boolean_mode: str = "default"
 ) -> Dict[str, Any]:
     """
-    Enhanced DuckDuckGo search with caching, proxy rotation, and rate limit handling.
+    DuckDuckGo search with direct HTTP requests to prevent rate limiting.
     
     Args:
         query: Search query string
@@ -286,11 +281,19 @@ def search_duckduckgo_text(
         timelimit: Time limit for results (e.g. "d" for day, "w" for week)
         use_cache: Whether to use caching
         cache_max_age: Maximum age of cached results in seconds
-        use_proxies: Whether to use proxy rotation
+        use_proxies: Whether to use proxy rotation (kept for compatibility)
+        boolean_mode: Boolean search mode (default, strict, site, none)
     
     Returns:
         Dict with search results and metadata
     """
+    global _LAST_SUCCESSFUL_SEARCH
+    
+    # Format query with boolean operators if enabled
+    formatted_query = format_boolean_search(query, boolean_mode)
+    logger.info(f"Original query: {query}")
+    logger.info(f"Formatted query: {formatted_query}")
+    
     # Check cache first if enabled
     if use_cache:
         cache_key = _get_cache_key(
@@ -298,36 +301,60 @@ def search_duckduckgo_text(
             max_results=max_results,
             region=region,
             safesearch=safesearch,
-            timelimit=timelimit
+            timelimit=timelimit,
+            boolean_mode=boolean_mode
         )
         cached_result = _get_from_cache(cache_key, cache_max_age)
         if cached_result:
             return cached_result
     
-    # Get a proxy if proxy rotation is enabled
-    proxy = _get_next_proxy() if use_proxies and _PROXY_LIST else None
+    # CRUCIAL: Always enforce a significant delay to avoid rate limiting
+    forced_delay = random.uniform(5, 10)
+    logger.info(f"Enforcing minimum delay of {forced_delay:.2f}s")
+    time.sleep(forced_delay)
+    
+    # Wait for minimum interval since last successful search
+    now = time.time()
+    time_since_last = now - _LAST_SUCCESSFUL_SEARCH
+    if time_since_last < _MIN_SEARCH_INTERVAL:
+        wait_time = _MIN_SEARCH_INTERVAL - time_since_last
+        logger.info(f"Waiting {wait_time:.2f}s for global search cooldown")
+        time.sleep(wait_time)
+    
+    # Add a small random delay to make patterns less predictable
+    random_delay = random.uniform(1.0, 3.0)
+    time.sleep(random_delay)
+    
+    logger.info(f"Starting search: {formatted_query[:50]}... (max={max_results})")
     
     try:
-        # Attempt the search with retries
-        cleaned_results = _execute_search(
-            query,
-            delay=delay,
-            region=region,
-            safesearch=safesearch,
-            timelimit=timelimit,
-            max_results=max_results,
-            proxy=proxy,
-        )
+        # Try the direct HTTP request approach instead of DDGS
+        raw_results = direct_search(formatted_query, max_results=max_results)
+        
+        # If direct search fails or returns no results
+        if not raw_results:
+            logger.warning("Direct search returned no results, using fallback message")
+            return {
+                "status": "error",
+                "message": "Direct search failed to return results. Try another query or wait longer.",
+                "query": query,
+                "formatted_query": formatted_query
+            }
         
         # Format results
-        md_results = [_md(r, i) for i, r in enumerate(cleaned_results, 1)]
+        md_results = [_md(r, i) for i, r in enumerate(raw_results, 1)]
+        
+        # Record successful search time
+        _LAST_SUCCESSFUL_SEARCH = time.time()
         
         result = {
             "status": "success",
-            "backend": _BACKEND,
             "query": query,
-            "results": cleaned_results,
+            "formatted_query": formatted_query,
+            "results": raw_results,
             "results_markdown": md_results,
+            "result_count": len(raw_results),
+            "boolean_mode": boolean_mode
         }
         
         # Cache the result if caching is enabled
@@ -336,21 +363,15 @@ def search_duckduckgo_text(
         
         return result
         
-    except RetryError:
-        logger.error(f"All retries failed for query: {query}")
+    except Exception as e:
+        logger.error(f"Search error: {e}")
         return {
             "status": "error", 
-            "query": query, 
-            "message": "Exceeded retry attempts due to rate limiting"
+            "query": query,
+            "formatted_query": formatted_query,
+            "message": str(e),
+            "boolean_mode": boolean_mode
         }
-    
-    except DuckDuckGoSearchException as e:
-        logger.error(f"DuckDuckGo error: {e}")
-        return {"status": "error", "query": query, "message": str(e)}
-    
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return {"status": "error", "query": query, "message": f"unexpected: {e}"}
 
 @mcp.tool()
 def search_with_relevance(
@@ -362,6 +383,8 @@ def search_with_relevance(
     safesearch: str = "moderate",
     timelimit: Optional[str] = None,
     use_cache: bool = True,
+    use_proxies: bool = False,
+    boolean_mode: str = "default"
 ) -> Dict[str, Any]:
     """
     Enhanced search that scores and ranks results by relevance to keywords.
@@ -375,6 +398,8 @@ def search_with_relevance(
         safesearch: SafeSearch setting ("on", "moderate", "off")
         timelimit: Time limit for results (e.g. "d" for day, "w" for week)
         use_cache: Whether to use caching
+        use_proxies: Whether to use proxy rotation (kept for compatibility)
+        boolean_mode: Boolean search mode (default, strict, site, none)
     
     Returns:
         Dict with search results ranked by relevance
@@ -391,7 +416,9 @@ def search_with_relevance(
         region=region,
         safesearch=safesearch,
         timelimit=timelimit,
-        use_cache=use_cache
+        use_cache=use_cache,
+        use_proxies=use_proxies,
+        boolean_mode=boolean_mode
     )
     
     if search_results.get("status") != "success":
@@ -420,19 +447,20 @@ def search_with_relevance(
     # Return the ranked results
     return {
         "status": "success",
-        "backend": _BACKEND,
         "query": query,
+        "formatted_query": search_results.get("formatted_query"),
         "keywords_used": relevance_keywords,
         "results": ranked_results,
         "results_markdown": md_results,
-        "scored_results": scored_results  # Include scores for transparency
+        "scored_results": scored_results,  # Include scores for transparency
+        "boolean_mode": boolean_mode
     }
 
 # ───────────── CLI helper (optional) ─────────────
 def _cli() -> None:
     import argparse
 
-    p = argparse.ArgumentParser(description="DDG HTML search (rate-limited)")
+    p = argparse.ArgumentParser(description="DuckDuckGo direct search (rate-limit resistant)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("search")
@@ -443,9 +471,10 @@ def _cli() -> None:
     s.add_argument("--safesearch", choices=["off", "moderate", "on"], default="moderate")
     s.add_argument("--timelimit", choices=["d", "w", "m", "y"], default=None)
     s.add_argument("--no-cache", action="store_true", help="Disable caching")
-    s.add_argument("--use-proxies", action="store_true", help="Enable proxy rotation")
     s.add_argument("--with-relevance", action="store_true", help="Use relevance scoring")
     s.add_argument("--keywords", nargs="+", help="Relevance keywords")
+    s.add_argument("--boolean", choices=["default", "strict", "site", "none"], 
+                   default="default", help="Boolean search mode")
 
     sub.add_parser("check")
 
@@ -463,6 +492,7 @@ def _cli() -> None:
                 safesearch=args.safesearch,
                 timelimit=args.timelimit,
                 use_cache=not args.no_cache,
+                boolean_mode=args.boolean
             )
         else:
             out = search_duckduckgo_text(
@@ -473,11 +503,10 @@ def _cli() -> None:
                 safesearch=args.safesearch,
                 timelimit=args.timelimit,
                 use_cache=not args.no_cache,
-                use_proxies=args.use_proxies,
+                boolean_mode=args.boolean
             )
 
     print(json.dumps(out, indent=2))
-
 
 if __name__ == "__main__":
     # Check if being run directly with command-line arguments
