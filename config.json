@@ -33,6 +33,10 @@
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/database_osint.py"]
     },
+    "tiktok": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/tiktok_osint.py"]
+    },
     "search_orchestrator": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/search_orchestrator.py"],
