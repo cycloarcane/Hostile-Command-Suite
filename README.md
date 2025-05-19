@@ -19,12 +19,21 @@
 
 ```
 Hostile-Command-Suite/
-├── OSINT/                 # finished micro‑services + config
+├── OSINT/                 # OSINT micro‑services + config
+│   ├── database_osint.py  # PostgreSQL storage for OSINT results
+│   ├── duckduckgo_osint.py # DuckDuckGo search wrapper
 │   ├── email_osint.py     # Mosint / Holehe / h8mail aggregator
+│   ├── google_osint.py    # Google Custom Search API wrapper
+│   ├── link_follower_osint.py # Web page content fetcher and parser
 │   ├── phone_osint.py     # PhoneInfoga wrapper
+│   ├── tiktok_osint.py    # TikTok API unofficial wrapper
 │   └── username_osint.py  # Sherlock wrapper
-├── PEN-TEST/              # ✨ reserved: coming soon
-├── osint_config.json      # OSINT MCP server manifest
+├── PEN-TEST/              # Penetration testing tools
+│   └── nmap_ptest.py      # Network scanning using Nmap
+├── scripts/               # Helper scripts for setup and management
+│   └── database_init.sh   # Initialize PostgreSQL database
+├── config.json            # MCP server configuration
+├── install_hcs.sh         # Installer script
 └── README.md              # you are here
 ```
 
@@ -56,7 +65,7 @@ chmod +x install_hcs.sh   # already in the repo root
 source .venv/bin/activate
 ```
 
-You’re now ready to launch any MCP wrapper (e.g. `python OSINT/email_osint.py`) or plug the suite straight into your chatbot.
+You're now ready to launch any MCP wrapper (e.g. `python OSINT/email_osint.py`) or plug the suite straight into your chatbot.
 
 ### Manual Install
 
@@ -96,9 +105,12 @@ echo '{"method":"mosint","params":["alice@example.com"]}' | \
 | **Social‑Analyzer** | Optional                 | `--google_key` / REST settings endpoint   | OCR + AI ranking         |
 | **Instaloader**     | No                       | Instagram login only for private profiles | —                        |
 | **Osintgram**       | IG creds (no API key)    | `credentials.ini`                         | Needs login at all       |
-| **GHunt**           | Google cookies           | `config` file with SID, LSID, HSID        | Script won’t run         |
+| **GHunt**           | Google cookies           | `config` file with SID, LSID, HSID        | Script won't run         |
+| **Google Search**   | **Yes**                  | `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Entire functionality   |
+| **Database**        | **Yes**                  | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Storage functionality |
+| **TikTok API**      | Optional                 | `ms_token` parameter                      | Authentication bypass    |
 
-> **Tip:** keep secrets in 600‑perm dot‑files or systemd `LoadCredential=` so wrappers never embed them in code.
+> **Tip:** keep secrets in 600‑perm dot‑files or systemd `LoadCredential=` so wrappers never embed them in code. See `needed_variables.md` for complete setup instructions.
 
 ---
 
@@ -106,12 +118,18 @@ echo '{"method":"mosint","params":["alice@example.com"]}' | \
 
 | Wrapper script       | Status                                           |
 | -------------------- | ------------------------------------------------ |
+| `database_osint.py`  | ✅ ready (PostgreSQL storage for OSINT results)   |
+| `duckduckgo_osint.py`| ✅ ready (DuckDuckGo search with rate-limiting resistance) |
 | `email_osint.py`     | ✅ ready (Mosint + Holehe + h8mail)               |
-| `username_osint.py`  | ✅ ready (Sherlock)                               |
+| `google_osint.py`    | ✅ ready (Google Custom Search with relevance scoring) |
+| `link_follower_osint.py` | ✅ ready (Web page content fetcher and parser) |
 | `phone_osint.py`     | ✅ ready (PhoneInfoga)                            |
+| `tiktok_osint.py`    | ✅ ready (Unofficial TikTok API wrapper)          |
+| `username_osint.py`  | ✅ ready (Sherlock)                               |
+| `nmap_ptest.py`      | ✅ ready (Network scanning with Nmap)             |
 | `twitter_osint.py`   | ❌ *planned* (Twint timeline + followers)         |
 | `social_osint.py`    | ❌ *planned* (Osintgram + Instaloader)            |
-| `google_osint.py`    | ❌ *planned* (GHunt wrapper)                      |
+| `ghunt_osint.py`     | ❌ *planned* (GHunt wrapper)                      |
 | `footprint_osint.py` | ❌ *planned* (SpiderFoot / Recon‑ng orchestrator) |
 | `PEN-TEST/*`         | 🚧 (Metasploit, Nuclei, etc. to be added)        |
 
@@ -132,8 +150,12 @@ Bug reports or feature ideas?  Open an issue or mail [cycloarkane@gmail.com](mai
 
 ## Roadmap
 
-* [ ] Finish wrappers marked ❌ and wire them into `OSINT/config.json`.
-* [ ] Add `PEN-TEST` micro‑services (nmap, nuclei, feroxbuster, etc.).
+* [x] Implement core OSINT wrappers (email, username, phone)
+* [x] Add more data sources (Google, DuckDuckGo, TikTok)
+* [x] Add database storage functionality
+* [x] Add initial PEN-TEST tools (nmap)
+* [ ] Finish wrappers marked ❌ (Twitter, Social, GHunt, Footprint)
+* [ ] Add more PEN-TEST micro‑services (nuclei, feroxbuster, etc.)
 * [ ] Docker‑compose for one‑command bring‑up.
 * [ ] Web dashboard (React + FastAPI) to browse stored OSINT artefacts.
 
