@@ -198,36 +198,5 @@ def scan_phone_all(number: str, timeout: int = 60, no_follow: bool = False):
     return overall
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Tiny CLI for humans:  ./phone_osint.py scan [+number] [--no-follow]
-# ──────────────────────────────────────────────────────────────────────────────
-def _cli() -> None:
-    import argparse
-
-    p = argparse.ArgumentParser(description="Quick wrapper for phone OSINT")
-    sub = p.add_subparsers(dest="cmd", required=True)
-
-    scan = sub.add_parser("scan", help="scan one phone number")
-    scan.add_argument("number")
-    scan.add_argument("--timeout", type=int, default=60)
-    scan.add_argument("--no-follow", action="store_true",
-                      help="skip downloading every Google link")
-
-    sub.add_parser("check", help="verify phoneinfoga-bin availability")
-
-    args = p.parse_args()
-    if args.cmd == "check":
-        out = check_tools_installation()
-    else:  # scan
-        out = scan_phone_phoneinfoga(
-            args.number, timeout=args.timeout, no_follow=args.no_follow
-        )
-
-    print(json.dumps(out, indent=2))
-
-
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] in {"scan", "check"}:
-        _cli()
-    else:
-        mcp.run(transport="stdio")
+    mcp.run(transport="stdio")
