@@ -95,7 +95,7 @@ def search_email_mosint(email: str, timeout: Optional[int] = 120) -> Dict[str, U
         # New-style CLI first
         proc = run(["mosint", email, "-o", output_file])
 
-        # Fallback for legacy versions that don’t recognise the new flags
+        # Fallback for legacy versions that don't recognise the new flags
         if proc.returncode != 0 and ("unknown flag" in proc.stderr.lower()
                                      or "unknown shorthand" in proc.stderr.lower()):
             proc = run(["mosint", "-e", email, "-json", output_file])
@@ -229,6 +229,5 @@ def search_email_all(email: str, timeout: Optional[int] = 180) -> Dict[str, Unio
     res["summary"] = summary
     return res
 
-# --------------------------------------------------------------------------- #
 if __name__ == "__main__":
     mcp.run(transport="stdio")
