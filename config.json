@@ -21,6 +21,46 @@
       "args": ["-u", "OSINT/google_osint.py"],
       "transport": "stdio"
     },
+    "shodan": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/shodan_osint.py"],
+      "transport": "stdio"
+    },
+    "metadata": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/metadata_osint.py"],
+      "transport": "stdio"
+    },
+    "domain": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/domain_osint.py"],
+      "transport": "stdio"
+    },
+    "geolocation": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/geolocation_osint.py"],
+      "transport": "stdio"
+    },
+    "breach": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/breach_osint.py"],
+      "transport": "stdio"
+    },
+    "crypto": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/crypto_osint.py"],
+      "transport": "stdio"
+    },
+    "certificate": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/certificate_osint.py"],
+      "transport": "stdio"
+    },
+    "social": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/social_osint.py"],
+      "transport": "stdio"
+    },
     "nmap": {
       "command": ".venv/bin/python",
       "args": ["-u", "PEN-TEST/nmap_ptest.py"]
