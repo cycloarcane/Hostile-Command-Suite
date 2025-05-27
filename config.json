@@ -45,11 +45,6 @@
       "args": ["-u", "OSINT/geolocation_osint.py"],
       "transport": "stdio"
     },
-    "social": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/social_osint.py"],
-      "transport": "stdio"
-    },
     "crypto": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/crypto_osint.py"],
