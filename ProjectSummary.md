@@ -186,11 +186,16 @@
 
 ### 14. Web Intelligence (`link_follower_osint.py`)
 **Capabilities:**
-- `fetch_url(url)` - Web page content extraction with metadata
-- `fetch_multiple_urls(urls)` - Batch URL processing
-- **Features:** Content parsing, link extraction, metadata analysis
+- `fetch_url(url, delay=2.0, timeout=30, max_content_length=5MB)` - Enhanced web content fetcher with metadata extraction
+- `fetch_multiple_urls(urls, max_urls=10)` - Batch URL processing for efficient web reconnaissance
+- **Content Extraction:** Clean text extraction, HTML metadata, link discovery
+- **Smart Parsing:** Content-type detection, binary file handling, size limits
+- **Rate Limiting:** Respectful crawling with configurable delays
+- **Error Handling:** Comprehensive retry logic, timeout management, graceful degradation
 
+**Data Sources:** Direct HTTP/HTTPS web requests with BeautifulSoup parsing
 **Requirements:** `pip install requests beautifulsoup4`
+**Fixed:** urllib3 compatibility issue resolved for both legacy and modern versions
 
 ### 15. TikTok Intelligence (`tiktok_osint.py`)
 **Capabilities:**
