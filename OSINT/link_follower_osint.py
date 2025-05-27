@@ -78,12 +78,19 @@ def _create_session() -> requests.Session:
     """Create a requests session with retry strategy and proper headers."""
     session = requests.Session()
     
-    retry_strategy = Retry(
-        total=3,
-        status_forcelist=[429, 500, 502, 503, 504],
-        method_whitelist=["HEAD", "GET", "OPTIONS"],
-        backoff_factor=1
-    )
+    # Handle both old and new urllib3 versions
+    retry_kwargs = {
+        "total": 3,
+        "status_forcelist": [429, 500, 502, 503, 504],
+        "backoff_factor": 1
+    }
+    
+    # Try the new parameter name first, fall back to old one
+    try:
+        retry_strategy = Retry(allowed_methods=["HEAD", "GET", "OPTIONS"], **retry_kwargs)
+    except TypeError:
+        # Fall back to old parameter name for older urllib3 versions
+        retry_strategy = Retry(method_whitelist=["HEAD", "GET", "OPTIONS"], **retry_kwargs)
     
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
