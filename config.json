@@ -2,23 +2,27 @@
   "mcpServers": {
     "email": {
       "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/email_osint.py"]
+      "args": ["-u", "OSINT/email_osint.py"],
+      "transport": "stdio"
     },
     "username": {
       "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/username_osint.py"]
+      "args": ["-u", "OSINT/username_osint.py"],
+      "transport": "stdio"
     },
     "phone": {
       "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/phone_osint.py"]
-    },
-    "duckduckgo": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/duckduckgo_osint.py"]
+      "args": ["-u", "OSINT/phone_osint.py"],
+      "transport": "stdio"
     },
     "google": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/google_osint.py"],
+      "transport": "stdio"
+    },
+    "duckduckgo": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/duckduckgo_osint.py"],
       "transport": "stdio"
     },
     "shodan": {
@@ -26,14 +30,14 @@
       "args": ["-u", "OSINT/shodan_osint.py"],
       "transport": "stdio"
     },
-    "metadata": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/metadata_osint.py"],
-      "transport": "stdio"
-    },
     "domain": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/domain_osint.py"],
+      "transport": "stdio"
+    },
+    "certificate": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/certiificate_osint.py"],
       "transport": "stdio"
     },
     "geolocation": {
@@ -41,47 +45,55 @@
       "args": ["-u", "OSINT/geolocation_osint.py"],
       "transport": "stdio"
     },
-    "breach": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/breach_osint.py"],
-      "transport": "stdio"
-    },
     "crypto": {
       "command": ".venv/bin/python",
       "args": ["-u", "OSINT/crypto_osint.py"],
       "transport": "stdio"
     },
-    "certificate": {
+    "breach": {
       "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/certificate_osint.py"],
+      "args": ["-u", "OSINT/breach_osint.py"],
       "transport": "stdio"
     },
-    "social": {
+    "metadata": {
       "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/social_osint.py"],
+      "args": ["-u", "OSINT/metadata_osint.py"],
+      "transport": "stdio"
+    },
+    "link_follower": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/link_follower_osint.py"],
+      "transport": "stdio"
+    },
+    "tiktok": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/tiktok_osint.py"],
+      "transport": "stdio"
+    },
+    "database": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/database_osint.py"],
+      "transport": "stdio"
+    },
+    "dvla_vehicle": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/dvla_vehicle_osint.py"],
+      "transport": "stdio"
+    },
+    "companies_house": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/companies_house_osint.py"],
+      "transport": "stdio"
+    },
+    "image_analysis": {
+      "command": ".venv/bin/python",
+      "args": ["-u", "OSINT/image_analysis_osint.py"],
       "transport": "stdio"
     },
     "nmap": {
       "command": ".venv/bin/python",
-      "args": ["-u", "PEN-TEST/nmap_ptest.py"]
-    },
-    "link_follower": {
-      "command": ".venv/bin/python",
-      "args": ["OSINT/link_follower_osint.py"]
-    },
-    "database": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/database_osint.py"]
-    },
-    "tiktok": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/tiktok_osint.py"]
-    },
-    "search_orchestrator": {
-      "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/search_orchestrator.py"],
-      "transport": "stdio",
-      "dependencies": ["duckduckgo", "link_follower", "database"]
+      "args": ["-u", "PEN-TEST/nmap_ptest.py"],
+      "transport": "stdio"
     }
   }
 }
