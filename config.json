@@ -37,7 +37,7 @@
     },
     "certificate": {
       "command": ".venv/bin/python",
-      "args": ["-u", "OSINT/certiificate_osint.py"],
+      "args": ["-u", "OSINT/certificate_osint.py"],
       "transport": "stdio"
     },
     "geolocation": {
