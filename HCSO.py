@@ -356,11 +356,20 @@ class HCSOAgent:
     
     async def execute_investigation_step(self, investigation: InvestigationState, tool: str, method: str, args: Dict[str, Any]):
         """Execute a single investigation step"""
-        # Add manual progress indication with proper padding
-        self.console.print(f"  [dim]Running {tool}...[/dim]")
-        
-        result = await self.tools.call_tool(tool, method, args)
-        investigation.add_finding(tool, result)
+        # Show animated dots progress indicator
+        with Progress(
+            SpinnerColumn(spinner_name="dots"),
+            TextColumn(f"[dim]Running {tool}...[/dim]"),
+            console=self.console,
+            transient=True
+        ) as progress:
+            task = progress.add_task("", total=None)
+            # Add padding to progress display
+            progress.columns[0].style = "dim"
+            progress.columns[1].style = "dim"
+            
+            result = await self.tools.call_tool(tool, method, args)
+            investigation.add_finding(tool, result)
         
         # Display results
         self.display_investigation_result(tool, result)
