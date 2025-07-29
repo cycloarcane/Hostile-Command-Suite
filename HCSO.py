@@ -588,24 +588,76 @@ class HCSOAgent:
             if not Confirm.ask("\n  Continue with AI recommendation?"):
                 break
             
-            # Parse AI decision for next action (simplified)
-            # In a full implementation, this would be more sophisticated
-            if "sherlock" in decision.lower() and "sherlock" in self.tools.available_tools:
-                # Extract username from decision if possible
-                continue_investigation = Confirm.ask("Run additional sherlock investigation?")
-                if continue_investigation:
-                    username = Prompt.ask("Enter username to investigate")
-                    await self.execute_investigation_step(
-                        investigation,
-                        "sherlock",
-                        "investigate_username", 
-                        {"username": username}
-                    )
+            # Parse AI decision for next action
+            recommendation_executed = await self._execute_ai_recommendation(decision, investigation)
+            
+            if not recommendation_executed:
+                self.console.print("  [yellow]Could not parse AI recommendation or tool not available[/yellow]")
             
             iteration += 1
         
         # Final summary
         self.display_final_summary(investigation)
+    
+    async def _execute_ai_recommendation(self, decision: str, investigation: InvestigationState) -> bool:
+        """Parse and execute AI recommendation"""
+        try:
+            import re
+            
+            # Extract tool and target from AI decision using regex
+            tool_match = re.search(r'TOOL:\s*[`"]?(\w+)[`"]?', decision, re.IGNORECASE)
+            target_match = re.search(r'TARGET:\s*[`"]?([^`"\n]+)[`"]?', decision, re.IGNORECASE)
+            
+            if not tool_match:
+                return False
+            
+            tool = tool_match.group(1).lower().strip()
+            target = target_match.group(1).strip() if target_match else None
+            
+            # Check if tool is available
+            if tool not in self.tools.available_tools:
+                self.console.print(f"  [red]Tool '{tool}' not available[/red]")
+                return False
+            
+            # Execute based on tool type
+            if tool == "sherlock" and target:
+                await self.execute_investigation_step(
+                    investigation,
+                    "sherlock",
+                    "investigate_username",
+                    {"username": target}
+                )
+                return True
+                
+            elif tool == "mosint" and target:
+                await self.execute_investigation_step(
+                    investigation,
+                    "mosint",
+                    "investigate_email",
+                    {"email": target}
+                )
+                return True
+                
+            elif tool == "link_analyzer" and target:
+                await self.execute_investigation_step(
+                    investigation,
+                    "link_analyzer",
+                    "analyze_link",
+                    {"url": target}
+                )
+                return True
+            
+            elif tool.lower() in ["none", "complete"]:
+                self.console.print("  [green]AI recommends investigation is complete[/green]")
+                return True
+            
+            else:
+                self.console.print(f"  [yellow]Unknown tool recommendation: {tool}[/yellow]")
+                return False
+                
+        except Exception as e:
+            self.console.print(f"  [red]Error parsing AI recommendation: {str(e)}[/red]")
+            return False
     
     def display_final_summary(self, investigation: InvestigationState):
         """Display final investigation summary"""
