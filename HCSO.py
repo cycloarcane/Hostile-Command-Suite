@@ -27,17 +27,17 @@ from rich import print as rprint
 
 # ASCII Banner
 BANNER = """
-╔═════════════════════════════════════════════════════════════════════════╗
-║  ██   ██ ███████  ██████        ███████ ███████  ██ ███    ██ ████████  ║
-║  ██   ██ ██      ██             ██   ██ ██       ██ ████   ██    ██     ║
-║  ███████ ███████ ██      █████  ██   ██ ███████  ██ ██ ██  ██    ██     ║
-║  ██   ██      ██ ██             ██   ██      ██  ██ ██  ██ ██    ██     ║
-║  ██   ██ ███████  ██████        ███████ ███████  ██ ██   ████    ██     ║
-╚═════════════════════════════════════════════════════════════════════════╝
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║  ██   ██ ███████  ██████        ███████ ███████  ██ ███    ██ ████████  ║
+  ║  ██   ██ ██      ██             ██   ██ ██       ██ ████   ██    ██     ║
+  ║  ███████ ███████ ██      █████  ██   ██ ███████  ██ ██ ██  ██    ██     ║
+  ║  ██   ██      ██ ██             ██   ██      ██  ██ ██  ██ ██    ██     ║
+  ║  ██   ██ ███████  ██████        ███████ ███████  ██ ██   ████    ██     ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
 
-    Hostile Command Suite - OSINT Package
-    Intelligent Open Source Intelligence Investigation System
-    
+      Hostile Command Suite - OSINT Package
+      Intelligent Open Source Intelligence Investigation System
+      
 """
 
 @dataclass
@@ -301,6 +301,19 @@ class HCSOAgent:
         self.agent = OllamaAgent(model=model)
         self.current_investigation: Optional[InvestigationState] = None
     
+    def print_with_padding(self, content, padding="  "):
+        """Print content with consistent left padding"""
+        # Simple approach - let Rich handle it and add padding to the console
+        original_options = self.console.options
+        # Create new options with left padding
+        from rich.console import Console
+        temp_console = Console(width=self.console.size.width - len(padding))
+        temp_console.print(content)
+        # Capture and reprint with padding - simplified
+        lines = str(content).split('\n') if hasattr(content, 'split') else [str(content)]
+        for line in lines:
+            self.console.print(f"{padding}{line}")
+    
     def display_banner(self):
         """Display the HCSO banner"""
         self.console.print(BANNER, style="bold red")
@@ -336,20 +349,20 @@ class HCSOAgent:
     
     async def execute_investigation_step(self, investigation: InvestigationState, tool: str, method: str, args: Dict[str, Any]):
         """Execute a single investigation step"""
-        with Progress(SpinnerColumn(), TextColumn("  [progress.description]{task.description}")) as progress:
-            task = progress.add_task(f"Running {tool}...", total=None)
-            
-            result = await self.tools.call_tool(tool, method, args)
-            investigation.add_finding(tool, result)
-            
-            # Display results
-            self.display_investigation_result(tool, result)
+        # Add manual progress indication with proper padding
+        self.console.print(f"  [dim]Running {tool}...[/dim]")
+        
+        result = await self.tools.call_tool(tool, method, args)
+        investigation.add_finding(tool, result)
+        
+        # Display results
+        self.display_investigation_result(tool, result)
     
     def display_investigation_result(self, tool: str, result: Dict[str, Any]):
         """Display results from an investigation tool"""
         if result.get("status") == "success":
             # Create summary table
-            table = Table(title=f"{tool.upper()} Investigation Results", title_style="bold red")
+            table = Table(title=f" {tool.upper()} Investigation Results", title_style="bold red")
             table.add_column("Metric", style="bright_red")
             table.add_column("Value", style="white")
             
@@ -362,8 +375,18 @@ class HCSOAgent:
                 table.add_row("Domain", result.get("domain", ""))
                 table.add_row("Status", "[green]Success[/green]")
             
-            self.console.print("  ", end="")
-            self.console.print(table)
+            # Render table with manual padding
+            from rich.console import Console
+            from io import StringIO
+            buffer = StringIO()
+            temp_console = Console(file=buffer, width=self.console.size.width - 2)
+            temp_console.print(table)
+            table_output = buffer.getvalue()
+            
+            for line in table_output.split('\n'):
+                if line.strip():  # Only print non-empty lines
+                    self.console.print(f"  {line}")
+            
             self.console.print("  " + "─" * 60)
         else:
             # Display error
@@ -372,8 +395,19 @@ class HCSOAgent:
                 title=f"{tool.upper()} Error",
                 border_style="red"
             )
-            self.console.print("  ", end="")
-            self.console.print(error_panel)
+            
+            # Render panel with manual padding
+            from rich.console import Console
+            from io import StringIO
+            buffer = StringIO()
+            temp_console = Console(file=buffer, width=self.console.size.width - 2)
+            temp_console.print(error_panel)
+            panel_output = buffer.getvalue()
+            
+            for line in panel_output.split('\n'):
+                if line.strip():  # Only print non-empty lines
+                    self.console.print(f"  {line}")
+            
             self.console.print("  " + "─" * 60)
     
     async def run_agent_loop(self, target: str):
@@ -409,8 +443,7 @@ class HCSOAgent:
             
             # Display AI analysis with padding
             analysis_panel = Panel(decision, title="AI Investigation Analysis", border_style="red")
-            self.console.print("  ", end="")
-            self.console.print(analysis_panel)
+            self.print_with_padding(analysis_panel)
             self.console.print("  " + "─" * 60)
             
             # Check if investigation should continue
@@ -454,8 +487,7 @@ class HCSOAgent:
         summary_table.add_row("Tools Used", " → ".join(investigation.investigation_chain))
         summary_table.add_row("Total Findings", str(len(investigation.findings)))
         
-        self.console.print("  ", end="")
-        self.console.print(summary_table)
+        self.print_with_padding(summary_table)
         self.console.print("  " + "─" * 60)
         
         # Display each finding with padding
@@ -469,8 +501,7 @@ class HCSOAgent:
                 title=f"Finding {i}: {tool.upper()}",
                 border_style="red"
             )
-            self.console.print("  ", end="")
-            self.console.print(finding_panel)
+            self.print_with_padding(finding_panel)
             self.console.print("  " + "─" * 60)
     
     async def run_interactive_mode(self):
