@@ -1,0 +1,81 @@
+sherlock_analysis: |
+  Analyze these Sherlock username investigation results:
+  
+  TARGET: {target}
+  ACCOUNTS FOUND: {accounts_found}
+  PLATFORMS: {platforms}
+  
+  Provide analysis focusing on:
+  1. Digital footprint assessment
+  2. OPSEC evaluation (username reuse patterns)
+  3. Platform selection patterns (professional vs personal)
+  4. Potential security risks
+  5. Recommended follow-up investigations
+  
+  Consider: Are there patterns suggesting this might be a real person, bot network, or compromise?
+
+mosint_analysis: |
+  Analyze these Mosint email investigation results:
+  
+  TARGET: {target}
+  DOMAIN: {domain}
+  INVESTIGATION STATUS: {status}
+  FINDINGS: {summary}
+  
+  Provide analysis focusing on:
+  1. Email exposure and breach status
+  2. Domain reputation and security
+  3. Associated social media accounts
+  4. Credential compromise indicators
+  5. Organizational intelligence (if business email)
+  
+  Consider: What does this email reveal about the target's security posture?
+
+correlation_analysis: |
+  Cross-reference these investigation findings to identify connections:
+  
+  INVESTIGATIONS PERFORMED:
+  {investigations}
+  
+  Look for:
+  1. Shared usernames across platforms
+  2. Email-to-username correlations
+  3. Account creation timeframes
+  4. Geographic or linguistic patterns
+  5. Security behavior consistency
+  
+  Provide a correlation map and suggest additional investigation vectors.
+
+pivot_decision: |
+  Based on current investigation findings, determine the best next steps:
+  
+  CURRENT TARGET: {target}
+  FINDINGS SUMMARY: {findings}
+  AVAILABLE TOOLS: {available_tools}
+  
+  Recommend:
+  1. Highest priority follow-up investigation
+  2. Which tool to use next and why
+  3. New targets discovered from current findings
+  4. Risk-based prioritization of leads
+  
+  Format as: RECOMMENDED_ACTION: [tool_name] [target] - [reasoning]
+
+risk_assessment: |
+  Assess the security risk level based on investigation findings:
+  
+  INVESTIGATION SUMMARY:
+  {investigation_summary}
+  
+  Evaluate:
+  1. Exposure level across platforms
+  2. Credential reuse indicators
+  3. Breach involvement
+  4. Social engineering vulnerability
+  5. Operational security failures
+  
+  Provide:
+  - Risk Level: [LOW/MEDIUM/HIGH/CRITICAL]
+  - Primary Concerns: [list top 3 risks]
+  - Immediate Actions: [what should be done now]
+  - Long-term Monitoring: [ongoing security measures]
