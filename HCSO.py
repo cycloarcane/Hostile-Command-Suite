@@ -283,6 +283,14 @@ class OllamaAgent:
         decision_prompt = f"""
 {system_prompt}
 
+CRITICAL TOOL LIMITATIONS - READ CAREFULLY:
+- sherlock: ONLY for username investigation (finds social media accounts)
+- mosint: ONLY for email investigation (breach data, domain info)
+- profile_scraper: Automatically runs after sherlock (don't suggest manually)
+
+DO NOT suggest mosint for usernames, GitHub profiles, URLs, or social media accounts!
+DO NOT suggest sherlock for email addresses!
+
 CURRENT INVESTIGATION STATUS:
 Target: {context['target']} (Type: {context['target_type']})
 Investigation Chain: {' -> '.join(context['investigation_chain'])}
@@ -294,16 +302,21 @@ RECENT FINDINGS:
 
 Based on the current investigation state and findings, what should be the next step?
 Consider:
-1. Are there new leads to follow up on?
-2. Should we pivot to a different investigation angle?
-3. Is the current investigation complete?
+1. Are there EMAIL ADDRESSES discovered in profiles that need mosint investigation?
+2. Are there NEW USERNAMES discovered that need sherlock investigation?
+3. Is the investigation complete with sufficient intelligence gathered?
 4. What additional intelligence would be most valuable?
+
+ONLY suggest tools for their correct purpose:
+- If email addresses found → mosint
+- If new usernames found → sherlock  
+- If sufficient intelligence gathered → mark complete
 
 Respond with your analysis and recommended next action in the format:
 ANALYSIS: [your analysis]
-RECOMMENDATION: [specific next step]
-TOOL: [tool to use] 
-TARGET: [what to investigate next]
+RECOMMENDATION: [specific next step or COMPLETE]
+TOOL: [tool to use or NONE if complete] 
+TARGET: [what to investigate next or N/A if complete]
 REASONING: [why this is the best next step]
 """
 
@@ -536,7 +549,7 @@ class HCSOAgent:
                 break
             
             # Ask user if they want to continue with AI recommendation
-            if not Confirm.ask("\nContinue with AI recommendation?"):
+            if not Confirm.ask("\n  Continue with AI recommendation?"):
                 break
             
             # Parse AI decision for next action (simplified)
