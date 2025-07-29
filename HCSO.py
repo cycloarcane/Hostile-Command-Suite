@@ -303,23 +303,30 @@ class HCSOAgent:
     
     def print_with_padding(self, content, padding="  "):
         """Print content with consistent left padding"""
-        # Simple approach - let Rich handle it and add padding to the console
-        original_options = self.console.options
-        # Create new options with left padding
-        from rich.console import Console
-        temp_console = Console(width=self.console.size.width - len(padding))
-        temp_console.print(content)
-        # Capture and reprint with padding - simplified
-        lines = str(content).split('\n') if hasattr(content, 'split') else [str(content)]
-        for line in lines:
-            self.console.print(f"{padding}{line}")
+        # For Rich objects, render to buffer first then add padding
+        if hasattr(content, '__rich__') or hasattr(content, '__rich_console__'):
+            from rich.console import Console
+            from io import StringIO
+            buffer = StringIO()
+            temp_console = Console(file=buffer, width=self.console.size.width - len(padding))
+            temp_console.print(content)
+            content_output = buffer.getvalue()
+            
+            for line in content_output.split('\n'):
+                if line.strip():  # Only print non-empty lines
+                    self.console.print(f"{padding}{line}")
+        else:
+            # For simple text content
+            lines = str(content).split('\n') if hasattr(content, 'split') else [str(content)]
+            for line in lines:
+                self.console.print(f"{padding}{line}")
     
     def display_banner(self):
         """Display the HCSO banner"""
         self.console.print(BANNER, style="bold red")
         self.console.print(f"  [bright_red]Using AI Model:[/bright_red] [bold white]{self.model}[/bold white]")
         self.console.print(f"  [bright_red]Available Tools:[/bright_red] [bold white]{', '.join(self.tools.available_tools.keys())}[/bold white]")
-        self.console.print("\n" + "─" * 80)
+        self.console.print("\n" + "  " + "─" * 78)
     
     def detect_target_type(self, target: str) -> str:
         """Detect the type of target"""
@@ -362,7 +369,7 @@ class HCSOAgent:
         """Display results from an investigation tool"""
         if result.get("status") == "success":
             # Create summary table
-            table = Table(title=f" {tool.upper()} Investigation Results", title_style="bold red")
+            table = Table(title=f"{tool.upper()} Investigation Results", title_style="bold red")
             table.add_column("Metric", style="bright_red")
             table.add_column("Value", style="white")
             
@@ -443,7 +450,19 @@ class HCSOAgent:
             
             # Display AI analysis with padding
             analysis_panel = Panel(decision, title="AI Investigation Analysis", border_style="red")
-            self.print_with_padding(analysis_panel)
+            
+            # Render panel with manual padding like other sections
+            from rich.console import Console
+            from io import StringIO
+            buffer = StringIO()
+            temp_console = Console(file=buffer, width=self.console.size.width - 2)
+            temp_console.print(analysis_panel)
+            panel_output = buffer.getvalue()
+            
+            for line in panel_output.split('\n'):
+                if line.strip():  # Only print non-empty lines
+                    self.console.print(f"  {line}")
+            
             self.console.print("  " + "─" * 60)
             
             # Check if investigation should continue
