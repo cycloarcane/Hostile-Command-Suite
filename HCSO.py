@@ -362,8 +362,7 @@ class HCSOAgent:
                 table.add_row("Domain", result.get("domain", ""))
                 table.add_row("Status", "[green]Success[/green]")
             
-            # Add padding to table
-            table_with_padding = f"  {str(table)}"
+            self.console.print("  ", end="")
             self.console.print(table)
             self.console.print("  " + "─" * 60)
         else:
@@ -455,6 +454,7 @@ class HCSOAgent:
         summary_table.add_row("Tools Used", " → ".join(investigation.investigation_chain))
         summary_table.add_row("Total Findings", str(len(investigation.findings)))
         
+        self.console.print("  ", end="")
         self.console.print(summary_table)
         self.console.print("  " + "─" * 60)
         
@@ -467,8 +467,7 @@ class HCSOAgent:
             finding_panel = Panel(
                 json.dumps(result, indent=2),
                 title=f"Finding {i}: {tool.upper()}",
-                border_style="red",
-                title_style="bold red"
+                border_style="red"
             )
             self.console.print("  ", end="")
             self.console.print(finding_panel)
