@@ -132,6 +132,15 @@ class MCPToolManager:
                 'description': 'Email OSINT and breach investigation',
                 'target_types': ['email']
             }
+        
+        # Check for profile scraper server
+        profile_scraper_server = tools_dir / "profile_scraper_server.py"
+        if profile_scraper_server.exists():
+            self.available_tools['profile_scraper'] = {
+                'server_path': str(profile_scraper_server),
+                'description': 'Scrape profiles from Sherlock results for additional intelligence',
+                'target_types': ['urls']
+            }
     
     async def call_tool(self, tool_name: str, method: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call an MCP tool method"""
@@ -147,6 +156,8 @@ class MCPToolManager:
                 return await self._call_sherlock(arguments.get('username'))
             elif tool_name == 'mosint' and method == 'investigate_email':
                 return await self._call_mosint(arguments.get('email'))
+            elif tool_name == 'profile_scraper' and method == 'scrape_sherlock_profiles':
+                return await self._call_profile_scraper(arguments.get('sherlock_results', []), arguments.get('max_profiles', 5))
             else:
                 return {"error": f"Unknown method {method} for tool {tool_name}"}
                 
@@ -160,11 +171,18 @@ class MCPToolManager:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
             if result.returncode == 0:
-                # Parse results
+                # Parse results and extract URLs
                 accounts = []
+                profile_urls = []
+                
                 for line in result.stdout.split('\n'):
                     if 'http' in line and username in line:
                         accounts.append(line.strip())
+                        # Extract URL from the line
+                        import re
+                        url_match = re.search(r'https?://[^\s]+', line)
+                        if url_match:
+                            profile_urls.append(url_match.group())
                 
                 return {
                     "tool": "sherlock",
@@ -173,6 +191,7 @@ class MCPToolManager:
                     "status": "success", 
                     "accounts_found": len(accounts),
                     "platforms": accounts,
+                    "profile_urls": profile_urls,
                     "investigation_summary": f"Found {len(accounts)} accounts for '{username}'"
                 }
             else:
@@ -199,6 +218,23 @@ class MCPToolManager:
             
         except Exception as e:
             return {"tool": "mosint", "status": "error", "error": str(e)}
+    
+    async def _call_profile_scraper(self, sherlock_results: List[str], max_profiles: int = 5) -> Dict[str, Any]:
+        """Call profile scraper tool directly"""
+        try:
+            # Import the profile scraper server
+            import sys
+            sys.path.append('mcp_tools')
+            from profile_scraper_server import ProfileScraperMCPServer
+            
+            # Initialize and call the scraper
+            scraper_server = ProfileScraperMCPServer()
+            result = await scraper_server.scrape_sherlock_profiles(sherlock_results, max_profiles)
+            
+            return result
+            
+        except Exception as e:
+            return {"tool": "profile_scraper", "status": "error", "error": str(e)}
 
 class OllamaAgent:
     """Intelligent OSINT agent powered by local ollama"""
@@ -390,6 +426,11 @@ class HCSOAgent:
                 table.add_row("Target", result.get("target", ""))
                 table.add_row("Domain", result.get("domain", ""))
                 table.add_row("Status", "[green]Success[/green]")
+            elif tool == "profile_scraper":
+                table.add_row("Total Scraped", str(result.get("total_scraped", 0)))
+                table.add_row("Successful", str(result.get("successful_scrapes", 0)))
+                table.add_row("With Useful Info", str(result.get("interesting_profiles", 0)))
+                table.add_row("Status", "[green]Success[/green]")
             
             # Render table with manual padding
             from rich.console import Console
@@ -439,6 +480,22 @@ class HCSOAgent:
                 "investigate_username", 
                 {"username": target}
             )
+            
+            # If sherlock found profiles and profile scraper is available, automatically scrape them
+            if (investigation.findings and 
+                investigation.findings[-1]["result"].get("profile_urls") and
+                "profile_scraper" in self.tools.available_tools):
+                
+                profile_urls = investigation.findings[-1]["result"]["profile_urls"]
+                if profile_urls:
+                    self.console.print(f"\n  [bold red]Found {len(profile_urls)} profiles, scraping for additional intelligence...[/bold red]")
+                    await self.execute_investigation_step(
+                        investigation,
+                        "profile_scraper",
+                        "scrape_sherlock_profiles",
+                        {"sherlock_results": profile_urls, "max_profiles": min(5, len(profile_urls))}
+                    )
+            
         elif investigation.target_type == "email" and "mosint" in self.tools.available_tools:
             await self.execute_investigation_step(
                 investigation,

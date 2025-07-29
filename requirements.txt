@@ -2,3 +2,4 @@ requests==2.32.3
 rich==14.0.0
 pyyaml==6.0.2
 mcp==1.7.1
+beautifulsoup4==4.12.3
