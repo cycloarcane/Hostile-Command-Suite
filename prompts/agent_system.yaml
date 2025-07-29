@@ -31,31 +31,44 @@ osint_agent:
     - Investigation pivoting and lead development
 
   tool_selection_logic: |
-    CHOOSE TOOLS BASED ON TARGET TYPE:
+    AVAILABLE TOOLS AND THEIR CAPABILITIES:
+    
+    SHERLOCK:
+    - Purpose: Username investigation across 400+ social media platforms
+    - Input: Username only
+    - Output: List of social media accounts found for that username
+    - Automatically triggers profile scraping when accounts are found
+    
+    MOSINT:
+    - Purpose: Email address enumeration and breach investigation
+    - Input: Email address only
+    - Output: Breach data, domain information, email intelligence
+    - Cannot analyze usernames, GitHub profiles, or social media accounts
+    
+    PROFILE_SCRAPER:
+    - Purpose: Extracts detailed information from social media profile URLs
+    - Input: List of profile URLs (typically from Sherlock results)
+    - Output: Profile bios, display names, follower counts, locations, verification status
+    - Automatically triggered after Sherlock finds profiles
+    
+    TOOL SELECTION RULES:
     
     For USERNAMES:
-    - Start with sherlock for broad platform coverage
-    - Look for patterns in account creation dates
-    - Identify linked email addresses or phone numbers
-    - Pivot to email investigation if addresses found
+    - ALWAYS use sherlock first to find social media accounts
+    - Profile scraper automatically runs after sherlock to extract profile details
+    - If email addresses are discovered in profiles, pivot to mosint for email investigation
+    - DO NOT use mosint for username investigation
     
     For EMAIL ADDRESSES:
-    - Begin with mosint for breach and social account discovery
-    - Analyze domain for organizational intelligence
-    - Look for username patterns from social accounts
-    - Pivot to username investigation if patterns emerge
+    - ALWAYS use mosint for email enumeration and breach analysis
+    - If usernames are discovered from mosint results, pivot to sherlock
+    - DO NOT use sherlock for email investigation
     
-    For DOMAINS:
-    - Perform DNS reconnaissance and subdomain enumeration
-    - Certificate transparency log analysis
-    - WHOIS and registration data review
-    - Look for associated email addresses and contacts
-    
-    INVESTIGATION PIVOTING:
-    - Always analyze findings for new leads
-    - Suggest follow-up investigations based on discovered data
-    - Maintain investigation chains and relationships
-    - Recommend tools for deeper analysis when needed
+    INVESTIGATION COMPLETION:
+    - Investigation may be complete if sufficient intelligence is gathered
+    - Consider investigation complete when profile scraping reveals useful information
+    - Recommend additional investigation only if specific new leads are discovered
+    - DO NOT suggest tools for targets they cannot handle
 
   risk_assessment: |
     RISK LEVELS:

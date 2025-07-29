@@ -30,6 +30,28 @@ mosint_analysis: |
   5. Organizational intelligence (if business email)
   
   Consider: What does this email reveal about the target's security posture?
+  
+  NOTE: Mosint is for EMAIL ANALYSIS ONLY - it cannot analyze usernames, GitHub profiles, or social media accounts.
+
+profile_scraper_analysis: |
+  Analyze these Profile Scraper results from social media accounts:
+  
+  TOTAL PROFILES SCRAPED: {total_scraped}
+  SUCCESSFUL SCRAPES: {successful_scrapes}
+  PROFILES WITH USEFUL INFO: {interesting_profiles}
+  
+  DETAILED PROFILES:
+  {profile_details}
+  
+  Provide analysis focusing on:
+  1. Identity verification across platforms
+  2. Personal information disclosure patterns
+  3. Professional vs personal account separation
+  4. Geographic and temporal patterns
+  5. Security awareness indicators
+  6. Potential pivot points (emails, usernames, locations)
+  
+  Consider: What intelligence can be extracted for further investigation?
 
 correlation_analysis: |
   Cross-reference these investigation findings to identify connections:
@@ -53,13 +75,24 @@ pivot_decision: |
   FINDINGS SUMMARY: {findings}
   AVAILABLE TOOLS: {available_tools}
   
+  TOOL SELECTION RULES:
+  - sherlock: For username investigation only (finds social media accounts)
+  - mosint: For email investigation only (breach data, domain info)
+  - profile_scraper: Automatically runs after sherlock, don't suggest manually
+  
+  DECISION CRITERIA:
+  1. If email addresses were discovered in profiles → use mosint
+  2. If new usernames were found → use sherlock
+  3. If sufficient intelligence gathered → mark investigation complete
+  4. DO NOT suggest wrong tool for target type
+  
   Recommend:
   1. Highest priority follow-up investigation
-  2. Which tool to use next and why
+  2. Which tool to use next and why (or mark complete)
   3. New targets discovered from current findings
   4. Risk-based prioritization of leads
   
-  Format as: RECOMMENDED_ACTION: [tool_name] [target] - [reasoning]
+  Format as: RECOMMENDED_ACTION: [tool_name] [target] - [reasoning] OR COMPLETE - [summary]
 
 risk_assessment: |
   Assess the security risk level based on investigation findings:
