@@ -304,9 +304,9 @@ class HCSOAgent:
     def display_banner(self):
         """Display the HCSO banner"""
         self.console.print(BANNER, style="bold red")
-        self.console.print(f"[bright_red]Using AI Model:[/bright_red] [bold white]{self.model}[/bold white]")
-        self.console.print(f"[bright_red]Available Tools:[/bright_red] [bold white]{', '.join(self.tools.available_tools.keys())}[/bold white]")
-        self.console.print()
+        self.console.print(f"  [bright_red]Using AI Model:[/bright_red] [bold white]{self.model}[/bold white]")
+        self.console.print(f"  [bright_red]Available Tools:[/bright_red] [bold white]{', '.join(self.tools.available_tools.keys())}[/bold white]")
+        self.console.print("\n" + "─" * 80)
     
     def detect_target_type(self, target: str) -> str:
         """Detect the type of target"""
@@ -327,16 +327,16 @@ class HCSOAgent:
             investigation_chain=[]
         )
         
-        self.console.print(f"[bold red]Starting Investigation[/bold red]")
-        self.console.print(f"[bright_red]Target:[/bright_red] [white]{target}[/white]")
-        self.console.print(f"[bright_red]Type:[/bright_red] [white]{target_type}[/white]")
+        self.console.print(f"\n  [bold red]Starting Investigation[/bold red]")
+        self.console.print(f"  [bright_red]Target:[/bright_red] [white]{target}[/white]")
+        self.console.print(f"  [bright_red]Type:[/bright_red] [white]{target_type}[/white]")
         self.console.print()
         
         return investigation
     
     async def execute_investigation_step(self, investigation: InvestigationState, tool: str, method: str, args: Dict[str, Any]):
         """Execute a single investigation step"""
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}")) as progress:
+        with Progress(SpinnerColumn(), TextColumn("  [progress.description]{task.description}")) as progress:
             task = progress.add_task(f"Running {tool}...", total=None)
             
             result = await self.tools.call_tool(tool, method, args)
@@ -362,7 +362,10 @@ class HCSOAgent:
                 table.add_row("Domain", result.get("domain", ""))
                 table.add_row("Status", "[green]Success[/green]")
             
+            # Add padding to table
+            table_with_padding = f"  {str(table)}"
             self.console.print(table)
+            self.console.print("  " + "─" * 60)
         else:
             # Display error
             error_panel = Panel(
@@ -370,7 +373,9 @@ class HCSOAgent:
                 title=f"{tool.upper()} Error",
                 border_style="red"
             )
+            self.console.print("  ", end="")
             self.console.print(error_panel)
+            self.console.print("  " + "─" * 60)
     
     async def run_agent_loop(self, target: str):
         """Main intelligent agent investigation loop"""
@@ -398,14 +403,16 @@ class HCSOAgent:
         iteration = 0
         
         while iteration < max_iterations and not self.agent.interrupted:
-            self.console.print(f"\n[bold red]AI Agent Analyzing...[/bold red]")
+            self.console.print(f"\n  [bold red]AI Agent Analyzing...[/bold red]")
             
             # Get AI recommendation for next step
             decision = await self.agent.analyze_and_decide(investigation, self.tools)
             
-            # Display AI analysis
+            # Display AI analysis with padding
             analysis_panel = Panel(decision, title="AI Investigation Analysis", border_style="red")
+            self.console.print("  ", end="")
             self.console.print(analysis_panel)
+            self.console.print("  " + "─" * 60)
             
             # Check if investigation should continue
             if "complete" in decision.lower() or "finished" in decision.lower():
@@ -436,7 +443,8 @@ class HCSOAgent:
     
     def display_final_summary(self, investigation: InvestigationState):
         """Display final investigation summary"""
-        self.console.print(f"\n[bold red]Investigation Summary[/bold red]")
+        self.console.print(f"\n  [bold red]Investigation Summary[/bold red]")
+        self.console.print("  " + "═" * 80)
         
         summary_table = Table(title_style="bold red")
         summary_table.add_column("Investigation Details", style="bright_red")
@@ -448,19 +456,23 @@ class HCSOAgent:
         summary_table.add_row("Total Findings", str(len(investigation.findings)))
         
         self.console.print(summary_table)
+        self.console.print("  " + "─" * 60)
         
-        # Display each finding
+        # Display each finding with padding
         for i, finding in enumerate(investigation.findings, 1):
             tool = finding["tool"]
             result = finding["result"]
             
+            self.console.print(f"\n  [bold red]Finding {i}: {tool.upper()}[/bold red]")
             finding_panel = Panel(
                 json.dumps(result, indent=2),
                 title=f"Finding {i}: {tool.upper()}",
                 border_style="red",
                 title_style="bold red"
             )
+            self.console.print("  ", end="")
             self.console.print(finding_panel)
+            self.console.print("  " + "─" * 60)
     
     async def run_interactive_mode(self):
         """Run in interactive investigation mode"""
@@ -468,10 +480,10 @@ class HCSOAgent:
         
         while True:
             try:
-                target = Prompt.ask("\n[bold red]Enter investigation target (or 'quit')[/bold red]").strip()
+                target = Prompt.ask("\n  [bold red]Enter investigation target (or 'quit')[/bold red]").strip()
                 
                 if target.lower() in ['quit', 'exit', 'q']:
-                    self.console.print("[red]Goodbye![/red]")
+                    self.console.print("  [red]Goodbye![/red]")
                     break
                 
                 if not target:
@@ -480,12 +492,12 @@ class HCSOAgent:
                 await self.run_agent_loop(target)
                 
             except KeyboardInterrupt:
-                self.console.print("\n[red]Investigation interrupted[/red]")
+                self.console.print("\n  [red]Investigation interrupted[/red]")
                 if self.current_investigation:
                     self.display_final_summary(self.current_investigation)
                 break
             except Exception as e:
-                self.console.print(f"[bright_red]Error: {str(e)}[/bright_red]")
+                self.console.print(f"  [bright_red]Error: {str(e)}[/bright_red]")
 
 async def main():
     parser = argparse.ArgumentParser(description="HCSO - Hostile Command Suite OSINT Agent")
