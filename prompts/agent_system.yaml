@@ -51,11 +51,18 @@ osint_agent:
     - Output: Profile bios, display names, follower counts, locations, verification status
     - Automatically triggered after Sherlock finds profiles
     
+    LINK_ANALYZER:
+    - Purpose: Deep analysis of individual URLs including GitHub profiles and websites
+    - Input: Single URL for in-depth analysis
+    - Output: Technical analysis, repository details, professional information, intelligence value
+    - Use for analyzing specific high-value URLs discovered in investigations
+    
     TOOL SELECTION RULES:
     
     For USERNAMES:
     - ALWAYS use sherlock first to find social media accounts
     - Profile scraper automatically runs after sherlock to extract profile details
+    - If high-value URLs found (GitHub profiles), use link_analyzer for deep analysis
     - If email addresses are discovered in profiles, pivot to mosint for email investigation
     - DO NOT use mosint for username investigation
     
@@ -64,9 +71,15 @@ osint_agent:
     - If usernames are discovered from mosint results, pivot to sherlock
     - DO NOT use sherlock for email investigation
     
+    For HIGH-VALUE URLs:
+    - Use link_analyzer for GitHub profiles, personal websites, professional profiles
+    - Link analyzer provides technical analysis, repository details, and intelligence assessment
+    - Prioritize URLs that show technical expertise or security research interest
+    
     INVESTIGATION COMPLETION:
     - Investigation may be complete if sufficient intelligence is gathered
     - Consider investigation complete when profile scraping reveals useful information
+    - Use link_analyzer if specific high-value URLs need deeper analysis
     - Recommend additional investigation only if specific new leads are discovered
     - DO NOT suggest tools for targets they cannot handle
 

@@ -141,6 +141,15 @@ class MCPToolManager:
                 'description': 'Scrape profiles from Sherlock results for additional intelligence',
                 'target_types': ['urls']
             }
+        
+        # Check for link analyzer server
+        link_analyzer_server = tools_dir / "link_analyzer_server.py"
+        if link_analyzer_server.exists():
+            self.available_tools['link_analyzer'] = {
+                'server_path': str(link_analyzer_server),
+                'description': 'Deep analysis of URLs including GitHub profiles and web content',
+                'target_types': ['urls']
+            }
     
     async def call_tool(self, tool_name: str, method: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call an MCP tool method"""
@@ -158,6 +167,8 @@ class MCPToolManager:
                 return await self._call_mosint(arguments.get('email'))
             elif tool_name == 'profile_scraper' and method == 'scrape_sherlock_profiles':
                 return await self._call_profile_scraper(arguments.get('sherlock_results', []), arguments.get('max_profiles', 5))
+            elif tool_name == 'link_analyzer' and method == 'analyze_link':
+                return await self._call_link_analyzer(arguments.get('url'))
             else:
                 return {"error": f"Unknown method {method} for tool {tool_name}"}
                 
@@ -235,6 +246,23 @@ class MCPToolManager:
             
         except Exception as e:
             return {"tool": "profile_scraper", "status": "error", "error": str(e)}
+    
+    async def _call_link_analyzer(self, url: str) -> Dict[str, Any]:
+        """Call link analyzer tool directly"""
+        try:
+            # Import the link analyzer server
+            import sys
+            sys.path.append('mcp_tools')
+            from link_analyzer_server import LinkAnalyzerMCPServer
+            
+            # Initialize and call the analyzer
+            analyzer_server = LinkAnalyzerMCPServer()
+            result = await analyzer_server.analyze_link(url)
+            
+            return result
+            
+        except Exception as e:
+            return {"tool": "link_analyzer", "status": "error", "error": str(e)}
 
 class OllamaAgent:
     """Intelligent OSINT agent powered by local ollama"""
@@ -287,6 +315,7 @@ CRITICAL TOOL LIMITATIONS - READ CAREFULLY:
 - sherlock: ONLY for username investigation (finds social media accounts)
 - mosint: ONLY for email investigation (breach data, domain info)
 - profile_scraper: Automatically runs after sherlock (don't suggest manually)
+- link_analyzer: For deep analysis of individual URLs (GitHub profiles, websites)
 
 DO NOT suggest mosint for usernames, GitHub profiles, URLs, or social media accounts!
 DO NOT suggest sherlock for email addresses!
@@ -309,7 +338,8 @@ Consider:
 
 ONLY suggest tools for their correct purpose:
 - If email addresses found → mosint
-- If new usernames found → sherlock  
+- If new usernames found → sherlock
+- If high-value URLs found (GitHub profiles, websites) → link_analyzer
 - If sufficient intelligence gathered → mark complete
 
 Respond with your analysis and recommended next action in the format:
@@ -443,6 +473,12 @@ class HCSOAgent:
                 table.add_row("Total Scraped", str(result.get("total_scraped", 0)))
                 table.add_row("Successful", str(result.get("successful_scrapes", 0)))
                 table.add_row("With Useful Info", str(result.get("interesting_profiles", 0)))
+                table.add_row("Status", "[green]Success[/green]")
+            elif tool == "link_analyzer":
+                analysis = result.get("analysis", {})
+                table.add_row("URL", result.get("url", ""))
+                table.add_row("Platform", analysis.get("platform", "unknown"))
+                table.add_row("Intelligence Value", analysis.get("intelligence_value", "unknown"))
                 table.add_row("Status", "[green]Success[/green]")
             
             # Render table with manual padding

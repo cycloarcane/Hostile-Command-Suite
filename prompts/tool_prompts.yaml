@@ -53,6 +53,24 @@ profile_scraper_analysis: |
   
   Consider: What intelligence can be extracted for further investigation?
 
+link_analyzer_analysis: |
+  Analyze these Link Analyzer results from URL investigation:
+  
+  URL: {url}
+  PLATFORM: {platform}
+  INTELLIGENCE VALUE: {intelligence_value}
+  ANALYSIS DETAILS: {analysis_details}
+  
+  Provide analysis focusing on:
+  1. Technical capabilities and expertise areas
+  2. Professional affiliations and organization ties
+  3. Repository analysis and code contributions
+  4. Security-related projects or interests
+  5. Contact information and additional leads
+  6. Intelligence assessment and follow-up recommendations
+  
+  Consider: What actionable intelligence does this URL provide for the investigation?
+
 correlation_analysis: |
   Cross-reference these investigation findings to identify connections:
   

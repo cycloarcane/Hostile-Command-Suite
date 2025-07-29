@@ -1,12 +1,12 @@
-# OSINT CLI
+# Hostile Command Suite - OSINT Package
 
 *Author:* **cycloarcane**  
 *Contact:* [cycloarkane@gmail.com](mailto:cycloarkane@gmail.com)  
 *License:* PolyForm Noncommercial License 1.0.0
 
-**A minimal, terminal-based OSINT investigation toolkit with local LLM analysis**
+**Intelligent Open Source Intelligence Investigation System**
 
-Inspired by [CAI](https://github.com/aliasrobotics/cai)'s modular agent architecture, this tool provides a streamlined terminal interface for OSINT investigations using local ollama for intelligent analysis.
+A terminal-based OSINT investigation framework with AI-powered analysis and intelligent agent decision-making. Features automated profile scraping, multi-platform username investigation, and local LLM integration for enhanced intelligence gathering.
 
 ---
 
@@ -17,7 +17,7 @@ Inspired by [CAI](https://github.com/aliasrobotics/cai)'s modular agent architec
 1. **Install ollama** (for AI analysis):
 ```bash
 curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.2  # or your preferred model
+ollama pull qwen3:8b  # recommended model
 ```
 
 2. **Install OSINT tools**:
@@ -25,7 +25,7 @@ ollama pull llama3.2  # or your preferred model
 # Arch Linux
 yay -S sherlock-git mosint
 
-# Ubuntu/Debian
+# Ubuntu/Debian  
 pip install sherlock-project
 # For mosint, download from: https://github.com/alpkeskin/mosint
 ```
@@ -35,21 +35,23 @@ pip install sherlock-project
 ```bash
 git clone https://github.com/cycloarcane/Hostile-Command-Suite.git
 cd Hostile-Command-Suite
-pip install -r requirements-minimal.txt
-chmod +x osint_cli.py
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+pip install -r requirements.txt
 ```
 
 ### Usage
 
 **Interactive mode:**
 ```bash
-./osint_cli.py --interactive
+python3 HCSO.py --interactive
 ```
 
-**Single target:**
+**Single target investigation:**
 ```bash
-./osint_cli.py username123
-./osint_cli.py user@example.com
+python3 HCSO.py cycloarcane
+python3 HCSO.py user@example.com
+python3 HCSO.py --model llama3.2 target_username
 ```
 
 ---
@@ -58,99 +60,132 @@ chmod +x osint_cli.py
 
 ### Core Capabilities
 
-- **Username Investigation**: Sherlock integration for social media account discovery
-- **Email Investigation**: Mosint integration for email intelligence gathering  
-- **AI Analysis**: Local ollama integration for intelligent findings analysis
-- **Terminal Interface**: Clean, rich terminal output with progress indicators
-- **Modular Design**: Easy to extend with additional OSINT tools
+- **🔍 Username Investigation**: Sherlock integration across 400+ social media platforms
+- **📧 Email Investigation**: Mosint integration for email intelligence and breach analysis  
+- **🌐 Profile Scraping**: Automated extraction of profile details from discovered accounts
+- **🤖 AI Agent**: Local ollama integration for intelligent decision-making and analysis
+- **⚡ Intelligent Workflow**: Automatic tool chaining and investigation pivoting
+- **🎨 Rich Terminal**: Professional red/black themed interface with progress indicators
 
 ### Supported Targets
 
-| Target Type | Tool Used | Description |
-|-------------|-----------|-------------|
-| **Username** | Sherlock | Search 400+ social media platforms |
-| **Email** | Mosint | Email OSINT and breach checking |
+| Target Type | Primary Tool | Secondary Tools | AI Analysis |
+|-------------|--------------|-----------------|-------------|
+| **Username** | Sherlock → Profile Scraper | AI Agent Decision | ✅ Full Analysis |
+| **Email** | Mosint | AI Agent Decision | ✅ Full Analysis |
 
-### AI Integration
+### MCP Tool Architecture
 
-The tool integrates with local ollama to provide:
-- Intelligent analysis of OSINT findings
-- Security-focused risk assessment
-- Actionable recommendations
-- Pattern recognition across tools
+The system uses Model Context Protocol (MCP) based tool servers:
+
+- **`sherlock_server.py`**: Username investigation across platforms
+- **`mosint_server.py`**: Email enumeration and breach investigation  
+- **`profile_scraper_server.py`**: Intelligent profile content extraction
+
+### AI-Powered Intelligence
+
+The AI agent provides:
+- **Intelligent Tool Selection**: Automatically chooses appropriate tools based on findings
+- **Investigation Pivoting**: Discovers new leads and suggests follow-up actions
+- **Security Risk Assessment**: Evaluates exposure levels and security implications
+- **Pattern Recognition**: Identifies connections across platforms and data sources
+- **Decision Making**: Determines when investigations are complete vs need continuation
 
 ---
 
 ## 🏗️ Architecture
 
-### Design Philosophy
+### Intelligent Agent Design
 
-Inspired by CAI's approach, the tool follows these principles:
-
-- **Agent-Centric**: Modular tool integration
-- **Terminal-First**: Clean CLI experience  
-- **Local LLM**: No cloud dependencies for analysis
-- **Minimal Dependencies**: Only essential packages
-- **Extensible**: Easy to add new OSINT tools
-
-### Tool Integration Pattern
-
-```python
-class NewTool:
-    def __init__(self):
-        self.name = "newtool"
-        self.available = self._check_availability()
-    
-    def investigate(self, target: str) -> Dict[str, Any]:
-        # Tool-specific investigation logic
-        return results
 ```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   HCSO Agent    │───▶│  Ollama AI       │───▶│ Investigation   │
+│                 │    │  Decision Engine │    │ Recommendations │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│ MCP Tool        │───▶│  Tool Results    │───▶│ Profile Scraper │
+│ Manager         │    │  Analysis        │    │ Auto-Trigger    │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│ Sherlock        │    │ Mosint           │    │ Profile         │
+│ Username Search │    │ Email Intel      │    │ Scraper         │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+### Investigation Workflow
+
+1. **Target Analysis**: AI determines target type (username/email)
+2. **Tool Selection**: Appropriate OSINT tool automatically selected
+3. **Data Collection**: Tool executes investigation and gathers results
+4. **Profile Enhancement**: If social media accounts found, automatic profile scraping
+5. **AI Analysis**: Intelligent analysis of all findings and risk assessment
+6. **Decision Point**: AI recommends next steps or marks investigation complete
+7. **Iterative Enhancement**: Follow-up investigations based on discovered leads
 
 ---
 
 ## 📊 Example Output
 
 ```
-OSINT Investigation: username123
-┏━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Tool     ┃ Status  ┃ Key Findings                                   ┃
-┡━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ SHERLOCK │ Success │ Found 15 potential accounts across platforms  │
-└──────────┴─────────┴────────────────────────────────────────────────┘
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║  ██   ██ ███████ ██████         ███████ ███████  ██ ███    ██ ████████  ║
+  ║  ██   ██ ██      ██             ██   ██ ██       ██ ████   ██    ██     ║
+  ║  ███████ ███████ ██      █████  ██   ██ ███████  ██ ██ ██  ██    ██     ║
+  ║  ██   ██      ██ ██             ██   ██      ██  ██ ██  ██ ██    ██     ║
+  ║  ██   ██ ███████ ██████         ███████ ███████  ██ ██   ████    ██     ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
 
-AI Analysis:
-╭─ Security Analysis ─────────────────────────────────────────────────────╮
-│ The investigation revealed significant digital footprint for username123 │
-│ across multiple platforms. Key security concerns:                        │
-│                                                                           │
-│ 1. High visibility across social media platforms                         │
-│ 2. Consistent username usage indicates poor OPSEC                        │
-│ 3. Recommend further investigation of identified accounts                 │
-│                                                                           │
-│ Risk Level: MEDIUM - Target has extensive online presence                │
-╰───────────────────────────────────────────────────────────────────────────╯
+      Hostile Command Suite - OSINT Package
+      Intelligent Open Source Intelligence Investigation System
+
+  Using AI Model: qwen3:8b
+  Available Tools: sherlock, mosint, profile_scraper
+
+  ──────────────────────────────────────────────────────────────────────────────
+
+  Starting Investigation
+  Target: cycloarcane
+  Type: username
+
+   SHERLOCK Investigation Results 
+  ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+  ┃ Metric         ┃ Value       ┃
+  ┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+  │ Target         │ cycloarcane │
+  │ Accounts Found │ 17          │
+  │ Status         │ Success     │
+  └────────────────┴─────────────┘
+  ────────────────────────────────────────────────────────────
+
+  Found 17 profiles, scraping for additional intelligence...
+  PROFILE_SCRAPER Investigation Results
+  ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┓
+  ┃ Metric           ┃ Value   ┃
+  ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
+  │ Total Scraped    │ 5       │
+  │ Successful       │ 4       │
+  │ With Useful Info │ 4       │
+  │ Status           │ Success │
+  └──────────────────┴─────────┘
+  ────────────────────────────────────────────────────────────
+
+  AI Agent Analyzing...
+  ╭─ AI Investigation Analysis ──────────────────────────────────────────────╮
+  │ ANALYSIS: Investigation revealed GitHub profile with security research    │
+  │ interests (LLMs + red team). High-value intelligence gathered from        │
+  │ multiple platforms. Profile scraping provided sufficient context.        │
+  │                                                                           │
+  │ RECOMMENDATION: Investigation complete - sufficient intelligence gathered │
+  │ TOOL: NONE                                                                │
+  │ TARGET: N/A                                                               │
+  │ REASONING: Profile analysis reveals technical expertise and security      │
+  │ focus. No additional tools needed for current investigation scope.        │
+  ╰───────────────────────────────────────────────────────────────────────────╯
 ```
-
----
-
-## 🔧 Configuration
-
-### Ollama Setup
-
-Default configuration connects to `http://localhost:11434` with `llama3.2` model.
-
-Customize via command line:
-```bash
-./osint_cli.py --model llama3.1 target_username
-```
-
-### Tool Dependencies
-
-The application automatically detects available tools:
-
-- ✅ **Green**: Tool available and functional
-- ⚠️ **Yellow**: Tool not found or not working
-- Install missing tools for full functionality
 
 ---
 
@@ -158,82 +193,129 @@ The application automatically detects available tools:
 
 ### Responsible Use
 
-- **Legal Compliance**: Ensure all investigations comply with local laws
+- **Legal Compliance**: All investigations must comply with applicable laws
 - **Authorization**: Only investigate targets you have permission to research
-- **Rate Limiting**: Tools respect platform rate limits automatically
-- **Local Processing**: All AI analysis happens locally via ollama
+- **Rate Limiting**: Respects platform rate limits and implements delays
+- **Local Processing**: All AI analysis happens locally via ollama (no cloud)
 
-### Privacy Considerations
+### Privacy & Security
 
-- **No Cloud Dependencies**: All processing happens locally
-- **No Data Storage**: Investigation results are not persistently stored
-- **Tool Isolation**: Each OSINT tool runs in isolation
+- **No Data Persistence**: Investigation results are not stored long-term
+- **Local LLM**: AI analysis never leaves your machine
+- **Tool Isolation**: Each OSINT tool runs independently
+- **Professional Focus**: Designed for defensive security and legitimate research
+
+---
+
+## 🔧 Configuration
+
+### AI Model Selection
+
+```bash
+# Use different ollama models
+python3 HCSO.py --model llama3.2 target
+python3 HCSO.py --model qwen3:8b target
+python3 HCSO.py --model mixtral target
+```
+
+### Configurable Prompts
+
+Agent behavior is configurable via YAML files:
+- `prompts/agent_system.yaml`: Core agent instructions and tool selection logic
+- `prompts/tool_prompts.yaml`: Tool-specific analysis templates
+
+### Tool Capabilities
+
+| Tool | Input | Capabilities | Auto-Trigger |
+|------|--------|--------------|--------------|
+| **Sherlock** | Username | 400+ platform search | Manual |
+| **Mosint** | Email | Breach data, domain intel | Manual |
+| **Profile Scraper** | URLs | Bio, followers, verification | After Sherlock |
 
 ---
 
 ## 🚧 Development
 
-### Adding New Tools
+### Adding New OSINT Tools
 
-1. Create a new tool class following the pattern in `osint_cli.py`
-2. Add tool availability checking
-3. Implement the `investigate()` method
-4. Register in the `OSINTCli` tools dictionary
+1. Create MCP server in `mcp_tools/new_tool_server.py`
+2. Add tool detection in `MCPToolManager.check_available_tools()`
+3. Implement tool calling in `MCPToolManager.call_tool()`
+4. Add result display in `display_investigation_result()`
+5. Update agent prompts for tool selection logic
 
-### Architecture Comparison
+### Architecture Benefits
 
-**Previous (Complex MCP):**
-- 15+ FastMCP microservices
-- PostgreSQL database requirement  
-- Web UI integration
-- API key management complexity
+**Previous Complex Architecture:**
+- 15+ microservices with FastMCP
+- PostgreSQL database requirement
+- Web UI and API complexity
+- Multiple authentication layers
 
-**Current (Minimal Terminal):**
-- Single Python script
+**Current Intelligent Agent Architecture:**
+- Single intelligent agent with MCP tools
 - No database required
-- Pure terminal interface
-- Local ollama for intelligence
+- Pure terminal interface with AI
+- Local ollama for decision-making
+- Automatic tool chaining and pivoting
 
 ---
 
 ## 📈 Roadmap
 
-### Phase 1: Core Tools ✅
-- [x] Sherlock username investigation
-- [x] Mosint email investigation  
-- [x] Ollama AI analysis integration
-- [x] Rich terminal interface
+### Phase 1: Core Intelligence ✅
+- [x] Sherlock username investigation with AI analysis
+- [x] Mosint email investigation with AI analysis
+- [x] Intelligent profile scraping from social media
+- [x] AI-powered investigation decision making
+- [x] MCP-based tool architecture
 
-### Phase 2: Enhanced Intelligence 🚧
-- [ ] Domain investigation tools
-- [ ] Phone number OSINT
-- [ ] Social media deep dive
-- [ ] Export functionality
+### Phase 2: Enhanced Analysis 🚧
+- [ ] Link analyzer for deep GitHub/social media analysis
+- [ ] Domain investigation capabilities
+- [ ] Phone number OSINT integration
+- [ ] Correlation analysis across findings
 
-### Phase 3: Advanced Features 📋
-- [ ] Investigation session saving
-- [ ] Custom tool integration
-- [ ] Automated workflows
-- [ ] Result correlation engine
+### Phase 3: Advanced Intelligence 📋
+- [ ] Investigation session management
+- [ ] Custom tool integration framework
+- [ ] Automated investigation workflows
+- [ ] Advanced AI reasoning and pivoting
 
 ---
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Add your OSINT tool integration
-4. Test with both available and unavailable tools
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/new-tool`)
+3. Add your MCP tool server following existing patterns
+4. Update agent prompts for tool integration
+5. Test with various target types
+6. Submit a pull request
+
+### Development Setup
+
+```bash
+git clone https://github.com/cycloarcane/Hostile-Command-Suite.git
+cd Hostile-Command-Suite
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 HCSO.py --interactive
+```
 
 ---
 
 ## 📄 License
 
-This project is licensed under the PolyForm Noncommercial License 1.0.0 - see the LICENSE.txt file for details.
+This project is licensed under the PolyForm Noncommercial License 1.0.0 - see the LICENSE file for details.
+
+Copyright © cycloarcane (cycloarkane@gmail.com)
 
 ---
 
-**Minimal. Terminal. Effective.**
+**Intelligent. Terminal. Effective.**
+
+*Advanced OSINT investigation with AI-powered decision making*
 
 *For questions or feature requests, contact [cycloarkane@gmail.com](mailto:cycloarkane@gmail.com)*
