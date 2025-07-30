@@ -42,16 +42,21 @@ pip install -r requirements.txt
 
 ### Usage
 
-**Interactive mode:**
+**Interactive comprehensive investigation:**
 ```bash
 python3 HCSO.py --interactive
+# Then provide ALL target information: names, usernames, emails, addresses, etc.
 ```
 
-**Single target investigation:**
+**Command line investigation:**
 ```bash
+# Single targets (backward compatibility)
 python3 HCSO.py cycloarcane
 python3 HCSO.py user@example.com
-python3 HCSO.py --model llama3.2 target_username
+
+# Comprehensive targets (multiple data points)
+python3 HCSO.py "John Smith, @johnsmith123, john@example.com, works at Acme Corp"
+python3 HCSO.py --model llama3.2 "Jane Doe jane.doe@company.com https://linkedin.com/in/janedoe"
 ```
 
 ---
@@ -63,6 +68,7 @@ python3 HCSO.py --model llama3.2 target_username
 - **🔍 Username Investigation**: Sherlock integration across 400+ social media platforms
 - **📧 Email Investigation**: Mosint integration for email intelligence and breach analysis  
 - **🌐 Profile Scraping**: Automated extraction of profile details from discovered accounts
+- **🔍 Web Search Intelligence**: DuckDuckGo search integration for comprehensive OSINT gathering
 - **🤖 AI Agent**: Local ollama integration for intelligent decision-making and analysis
 - **⚡ Intelligent Workflow**: Automatic tool chaining and investigation pivoting
 - **🎨 Rich Terminal**: Professional red/black themed interface with progress indicators
@@ -71,8 +77,9 @@ python3 HCSO.py --model llama3.2 target_username
 
 | Target Type | Primary Tool | Secondary Tools | AI Analysis |
 |-------------|--------------|-----------------|-------------|
-| **Username** | Sherlock → Profile Scraper | AI Agent Decision | ✅ Full Analysis |
-| **Email** | Mosint | AI Agent Decision | ✅ Full Analysis |
+| **Username** | Sherlock → Profile Scraper | DuckDuckGo Search, Link Analyzer | ✅ Full Analysis |
+| **Email** | Mosint | DuckDuckGo Search | ✅ Full Analysis |
+| **Any Target** | DuckDuckGo Search | Context-dependent pivoting | ✅ Full Analysis |
 
 ### MCP Tool Architecture
 
@@ -81,11 +88,19 @@ The system uses Model Context Protocol (MCP) based tool servers:
 - **`sherlock_server.py`**: Username investigation across platforms
 - **`mosint_server.py`**: Email enumeration and breach investigation  
 - **`profile_scraper_server.py`**: Intelligent profile content extraction
+- **`duckduckgo_server.py`**: Web search for comprehensive intelligence gathering
+- **`link_analyzer_server.py`**: Deep analysis of URLs and GitHub profiles
 
 ### AI-Powered Intelligence
 
 The AI agent provides:
-- **Intelligent Tool Selection**: Automatically chooses appropriate tools based on findings
+- **Comprehensive Data Extraction**: Uses LLM to parse and categorize all provided target information
+- **Intelligent Tool Selection**: Automatically chooses appropriate tools based on data types:
+  - **Names** → DuckDuckGo web search for public records and news
+  - **Usernames** → Sherlock for social media platform discovery
+  - **Emails** → Mosint for breach data and domain analysis
+  - **Organizations** → Web search for corporate intelligence
+  - **URLs** → Link analyzer for deep content analysis
 - **Investigation Pivoting**: Discovers new leads and suggests follow-up actions
 - **Security Risk Assessment**: Evaluates exposure levels and security implications
 - **Pattern Recognition**: Identifies connections across platforms and data sources
@@ -99,13 +114,13 @@ The AI agent provides:
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   HCSO Agent    │───▶│  Ollama AI       │───▶│ Investigation   │
+│   HCSO Agent    │──▶│  Ollama AI       │───▶│ Investigation   │
 │                 │    │  Decision Engine │    │ Recommendations │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │
          ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│ MCP Tool        │───▶│  Tool Results    │───▶│ Profile Scraper │
+│ MCP Tool        │──▶│  Tool Results    │───▶│ Profile Scraper │
 │ Manager         │    │  Analysis        │    │ Auto-Trigger    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │
@@ -118,12 +133,17 @@ The AI agent provides:
 
 ### Investigation Workflow
 
-1. **Target Analysis**: AI determines target type (username/email)
-2. **Tool Selection**: Appropriate OSINT tool automatically selected
-3. **Data Collection**: Tool executes investigation and gathers results
-4. **Profile Enhancement**: If social media accounts found, automatic profile scraping
-5. **AI Analysis**: Intelligent analysis of all findings and risk assessment
-6. **Decision Point**: AI recommends next steps or marks investigation complete
+1. **Comprehensive Input**: User provides ALL available target information (names, usernames, emails, addresses, organizations, URLs, etc.)
+2. **AI Data Extraction**: LLM parses and categorizes information into structured data types
+3. **Intelligent Tool Selection**: System automatically selects appropriate tools for each data type:
+   - Names → Web search for public intelligence
+   - Usernames → Social media platform discovery
+   - Emails → Breach analysis and domain intelligence
+   - Organizations → Corporate and public records search
+   - URLs → Deep content and profile analysis
+4. **Parallel Investigation**: Multiple tools execute simultaneously based on extracted data
+5. **AI Analysis**: Intelligent analysis of all findings and cross-reference discovery
+6. **Decision Point**: AI recommends additional investigations or marks complete
 7. **Iterative Enhancement**: Follow-up investigations based on discovered leads
 
 ---
@@ -143,13 +163,31 @@ The AI agent provides:
       Intelligent Open Source Intelligence Investigation System
 
   Using AI Model: qwen3:8b
-  Available Tools: sherlock, mosint, profile_scraper
+  Available Tools: sherlock, mosint, profile_scraper, duckduckgo_search, link_analyzer
 
   ──────────────────────────────────────────────────────────────────────────────
 
-  Starting Investigation
-  Target: cycloarcane
-  Type: username
+  ═══ COMPREHENSIVE TARGET INFORMATION ═══
+  Provide ALL available information about your target for intelligent analysis
+  Include: names, usernames, emails, addresses, organizations, social profiles, etc.
+
+  Enter ALL target information: John Smith, @johnsmith123, john.smith@techcorp.com, works at TechCorp
+
+  Analyzing Provided Information
+  ──────────────────────────────────────────────────────────────────────────────
+
+   Extracted Target Intelligence 
+  ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  ┃ Data Type      ┃ Extracted Values                                                  ┃
+  ┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+  │ Names          │ John Smith                                                        │
+  │ Usernames      │ johnsmith123                                                      │
+  │ Emails         │ john.smith@techcorp.com                                           │
+  │ Organizations  │ TechCorp                                                          │
+  └────────────────┴───────────────────────────────────────────────────────────────────┘
+  ────────────────────────────────────────────────────────────────
+
+  Investigating Name: John Smith
 
    SHERLOCK Investigation Results 
   ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
@@ -228,8 +266,10 @@ Agent behavior is configurable via YAML files:
 
 | Tool | Input | Capabilities | Auto-Trigger |
 |------|--------|--------------|--------------|
-| **Sherlock** | Username | 400+ platform search | Manual |
-| **Mosint** | Email | Breach data, domain intel | Manual |
+| **DuckDuckGo Search** | Names, Organizations | Web intelligence, news, public records | Auto for names |
+| **Sherlock** | Username | 400+ platform search | Auto for usernames |
+| **Mosint** | Email | Breach data, domain intel | Auto for emails |
+| **Link Analyzer** | URLs | GitHub profiles, web content analysis | Auto for URLs |
 | **Profile Scraper** | URLs | Bio, followers, verification | After Sherlock |
 
 ---

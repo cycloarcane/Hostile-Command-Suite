@@ -150,6 +150,15 @@ class MCPToolManager:
                 'description': 'Deep analysis of URLs including GitHub profiles and web content',
                 'target_types': ['urls']
             }
+        
+        # Check for DuckDuckGo search server
+        duckduckgo_server = tools_dir / "duckduckgo_server.py"
+        if duckduckgo_server.exists():
+            self.available_tools['duckduckgo_search'] = {
+                'server_path': str(duckduckgo_server),
+                'description': 'Web search for OSINT intelligence gathering',
+                'target_types': ['any']
+            }
     
     async def call_tool(self, tool_name: str, method: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call an MCP tool method"""
@@ -169,6 +178,10 @@ class MCPToolManager:
                 return await self._call_profile_scraper(arguments.get('sherlock_results', []), arguments.get('max_profiles', 5))
             elif tool_name == 'link_analyzer' and method == 'analyze_link':
                 return await self._call_link_analyzer(arguments.get('url'))
+            elif tool_name == 'duckduckgo_search' and method == 'web_search':
+                return await self._call_duckduckgo_search(arguments.get('query'), arguments.get('max_results', 10))
+            elif tool_name == 'duckduckgo_search' and method == 'news_search':
+                return await self._call_duckduckgo_news(arguments.get('query'), arguments.get('max_results', 10))
             else:
                 return {"error": f"Unknown method {method} for tool {tool_name}"}
                 
@@ -263,6 +276,94 @@ class MCPToolManager:
             
         except Exception as e:
             return {"tool": "link_analyzer", "status": "error", "error": str(e)}
+    
+    async def _call_duckduckgo_search(self, query: str, max_results: int = 10) -> Dict[str, Any]:
+        """Call DuckDuckGo web search tool directly"""
+        try:
+            # Import the DuckDuckGo search server
+            import sys
+            sys.path.append('mcp_tools')
+            from duckduckgo_server import check_duckduckgo_available
+            
+            if not check_duckduckgo_available():
+                return {"tool": "duckduckgo_search", "status": "error", "error": "duckduckgo_search not installed"}
+            
+            from duckduckgo_search import DDGS
+            
+            with DDGS() as ddgs:
+                results = list(ddgs.text(
+                    keywords=query,
+                    region="us-en",
+                    safesearch="moderate",
+                    max_results=max_results
+                ))
+            
+            # Process results for OSINT analysis
+            processed_results = []
+            for result in results:
+                processed_results.append({
+                    "title": result.get("title", ""),
+                    "body": result.get("body", ""),
+                    "href": result.get("href", ""),
+                    "source": result.get("source", "")
+                })
+            
+            return {
+                "tool": "duckduckgo_search",
+                "search_type": "web",
+                "query": query,
+                "status": "success",
+                "results_count": len(processed_results),
+                "results": processed_results,
+                "investigation_summary": f"Found {len(processed_results)} web results for '{query}'"
+            }
+            
+        except Exception as e:
+            return {"tool": "duckduckgo_search", "status": "error", "error": str(e)}
+    
+    async def _call_duckduckgo_news(self, query: str, max_results: int = 10) -> Dict[str, Any]:
+        """Call DuckDuckGo news search tool directly"""
+        try:
+            # Import the DuckDuckGo search server
+            import sys
+            sys.path.append('mcp_tools')
+            from duckduckgo_server import check_duckduckgo_available
+            
+            if not check_duckduckgo_available():
+                return {"tool": "duckduckgo_search", "status": "error", "error": "duckduckgo_search not installed"}
+            
+            from duckduckgo_search import DDGS
+            
+            with DDGS() as ddgs:
+                results = list(ddgs.news(
+                    keywords=query,
+                    region="us-en",
+                    max_results=max_results
+                ))
+            
+            # Process results for OSINT analysis
+            processed_results = []
+            for result in results:
+                processed_results.append({
+                    "title": result.get("title", ""),
+                    "body": result.get("body", ""),
+                    "url": result.get("url", ""),
+                    "date": result.get("date", ""),
+                    "source": result.get("source", "")
+                })
+            
+            return {
+                "tool": "duckduckgo_search",
+                "search_type": "news", 
+                "query": query,
+                "status": "success",
+                "results_count": len(processed_results),
+                "results": processed_results,
+                "investigation_summary": f"Found {len(processed_results)} news results for '{query}'"
+            }
+            
+        except Exception as e:
+            return {"tool": "duckduckgo_search", "status": "error", "error": str(e)}
 
 class OllamaAgent:
     """Intelligent OSINT agent powered by local ollama"""
@@ -295,7 +396,7 @@ class OllamaAgent:
         if not self.is_available():
             return "Ollama not available for intelligent analysis"
         
-        # Build context for AI decision making
+        # Build comprehensive context for AI decision making
         context = {
             "target": investigation.target,
             "target_type": investigation.target_type,
@@ -305,49 +406,65 @@ class OllamaAgent:
             "recent_findings": investigation.findings[-3:] if investigation.findings else []
         }
         
+        # Extract intelligence from all findings for better decision making
+        discovered_data = self._extract_discovered_intelligence(investigation.findings)
+        
         # Get agent system prompt
         system_prompt = self.prompt_manager.get_agent_prompt()
         
         decision_prompt = f"""
 {system_prompt}
 
-CRITICAL TOOL LIMITATIONS - READ CAREFULLY:
-- sherlock: ONLY for username investigation (finds social media accounts)
-- mosint: ONLY for email investigation (breach data, domain info)
+COMPREHENSIVE TOOL CAPABILITIES:
+- sherlock: Username investigation across 400+ social platforms
+- mosint: Email OSINT, breach data, domain analysis
 - profile_scraper: Automatically runs after sherlock (don't suggest manually)
-- link_analyzer: For deep analysis of individual URLs (GitHub profiles, websites)
+- link_analyzer: Deep analysis of URLs, GitHub profiles, websites
+- duckduckgo_search: Web search for additional intelligence, news search
 
-DO NOT suggest mosint for usernames, GitHub profiles, URLs, or social media accounts!
-DO NOT suggest sherlock for email addresses!
+INTELLIGENT TOOL SELECTION STRATEGY:
+1. Analyze ALL available information about the target
+2. Consider what intelligence gaps remain
+3. Select tools that will provide the most valuable new information
+4. Don't repeat the same type of search unless new data warrants it
 
-CURRENT INVESTIGATION STATUS:
+CURRENT INVESTIGATION STATE:
 Target: {context['target']} (Type: {context['target_type']})
 Investigation Chain: {' -> '.join(context['investigation_chain'])}
 Findings So Far: {context['findings_count']} results
 Available Tools: {', '.join(context['available_tools'])}
 
-RECENT FINDINGS:
+DISCOVERED INTELLIGENCE:
+{json.dumps(discovered_data, indent=2)}
+
+RECENT FINDINGS DETAIL:
 {json.dumps(context['recent_findings'], indent=2)}
 
-Based on the current investigation state and findings, what should be the next step?
-Consider:
-1. Are there EMAIL ADDRESSES discovered in profiles that need mosint investigation?
-2. Are there NEW USERNAMES discovered that need sherlock investigation?
-3. Is the investigation complete with sufficient intelligence gathered?
-4. What additional intelligence would be most valuable?
+INTELLIGENT DECISION MATRIX:
+Based on discovered intelligence, consider these strategies:
 
-ONLY suggest tools for their correct purpose:
-- If email addresses found → mosint
-- If new usernames found → sherlock
-- If high-value URLs found (GitHub profiles, websites) → link_analyzer
-- If sufficient intelligence gathered → mark complete
+1. EMAIL ADDRESSES found → Use mosint for breach/domain analysis
+2. NEW USERNAMES found → Use sherlock for additional platform discovery  
+3. INTERESTING URLs found → Use link_analyzer for deep content analysis
+4. NAMES/ORGANIZATIONS found → Use duckduckgo_search for web intelligence
+5. SOCIAL MEDIA PROFILES found → Check if worth deeper analysis
+6. TECHNICAL INDICATORS → Search for additional context
+7. If comprehensive intelligence gathered → Mark COMPLETE
 
-Respond with your analysis and recommended next action in the format:
-ANALYSIS: [your analysis]
+SEARCH INTELLIGENCE OPPORTUNITIES:
+- Target name + location for news/records
+- Target + associated organizations
+- Technical details + context
+- Associated usernames/emails + breach data
+- Profile information + additional context
+
+Analyze the current intelligence state and recommend the MOST VALUABLE next step:
+
+ANALYSIS: [detailed analysis of current intelligence gaps]
 RECOMMENDATION: [specific next step or COMPLETE]
-TOOL: [tool to use or NONE if complete] 
-TARGET: [what to investigate next or N/A if complete]
-REASONING: [why this is the best next step]
+TOOL: [tool to use or NONE if complete]
+TARGET: [specific query/target for the tool]
+REASONING: [why this provides maximum additional intelligence value]
 """
 
         try:
@@ -369,6 +486,69 @@ REASONING: [why this is the best next step]
                 
         except Exception as e:
             return f"AI analysis error: {str(e)}"
+    
+    def _extract_discovered_intelligence(self, findings: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract key intelligence from investigation findings"""
+        intelligence = {
+            "emails": [],
+            "usernames": [],
+            "urls": [],
+            "names": [],
+            "organizations": [],
+            "technical_info": [],
+            "platforms": [],
+            "locations": []
+        }
+        
+        for finding in findings:
+            result = finding.get("result", {})
+            tool = finding.get("tool", "")
+            
+            if tool == "sherlock":
+                # Extract platforms and URLs from sherlock results
+                platforms = result.get("platforms", [])
+                profile_urls = result.get("profile_urls", [])
+                intelligence["platforms"].extend(platforms)
+                intelligence["urls"].extend(profile_urls)
+                
+            elif tool == "mosint":
+                # Extract email domain and breach info
+                domain = result.get("domain", "")
+                if domain:
+                    intelligence["organizations"].append(domain)
+                
+            elif tool == "profile_scraper":
+                # Extract additional information from scraped profiles
+                scraped_data = result.get("scraped_profiles", [])
+                for profile in scraped_data:
+                    content = profile.get("content", "")
+                    # Simple extraction - could be enhanced with NLP
+                    if "@" in content:
+                        import re
+                        emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', content)
+                        intelligence["emails"].extend(emails)
+                        
+            elif tool == "link_analyzer":
+                # Extract analyzed information
+                analysis = result.get("analysis", {})
+                platform = analysis.get("platform", "")
+                if platform:
+                    intelligence["platforms"].append(platform)
+                    
+            elif tool == "duckduckgo_search":
+                # Extract search results context
+                search_results = result.get("results", [])
+                for search_result in search_results:
+                    title = search_result.get("title", "")
+                    body = search_result.get("body", "")
+                    # Could extract entities, organizations, etc. from search results
+                    intelligence["technical_info"].append(f"{title}: {body[:100]}...")
+        
+        # Remove duplicates and empty values
+        for key in intelligence:
+            intelligence[key] = list(set([item for item in intelligence[key] if item]))
+            
+        return intelligence
 
 class HCSOAgent:
     """Main OSINT Agent Controller"""
@@ -479,6 +659,11 @@ class HCSOAgent:
                 table.add_row("URL", result.get("url", ""))
                 table.add_row("Platform", analysis.get("platform", "unknown"))
                 table.add_row("Intelligence Value", analysis.get("intelligence_value", "unknown"))
+                table.add_row("Status", "[green]Success[/green]")
+            elif tool == "duckduckgo_search":
+                table.add_row("Query", result.get("query", ""))
+                table.add_row("Search Type", result.get("search_type", ""))
+                table.add_row("Results Found", str(result.get("results_count", 0)))
                 table.add_row("Status", "[green]Success[/green]")
             
             # Render table with manual padding
@@ -646,6 +831,20 @@ class HCSOAgent:
                     {"url": target}
                 )
                 return True
+                
+            elif tool == "duckduckgo_search" and target:
+                # Determine if it should be web search or news search based on context
+                search_type = "web_search"  # Default to web search
+                if "news" in target.lower() or "recent" in target.lower():
+                    search_type = "news_search"
+                    
+                await self.execute_investigation_step(
+                    investigation,
+                    "duckduckgo_search",
+                    search_type,
+                    {"query": target, "max_results": 10}
+                )
+                return True
             
             elif tool.lower() in ["none", "complete"]:
                 self.console.print("  [green]AI recommends investigation is complete[/green]")
@@ -696,16 +895,21 @@ class HCSOAgent:
         
         while True:
             try:
-                target = Prompt.ask("\n  [bold red]Enter investigation target (or 'quit')[/bold red]").strip()
+                self.console.print("\n  [bold red]═══ COMPREHENSIVE TARGET INFORMATION ═══[/bold red]")
+                self.console.print("  [dim]Provide ALL available information about your target for intelligent analysis[/dim]")
+                self.console.print("  [dim]Include: names, usernames, emails, addresses, organizations, social profiles, etc.[/dim]")
                 
-                if target.lower() in ['quit', 'exit', 'q']:
+                target_info = Prompt.ask("\n  [bold red]Enter ALL target information (or 'quit')[/bold red]", 
+                                       default="").strip()
+                
+                if target_info.lower() in ['quit', 'exit', 'q']:
                     self.console.print("  [red]Goodbye![/red]")
                     break
                 
-                if not target:
+                if not target_info:
                     continue
                 
-                await self.run_agent_loop(target)
+                await self.run_comprehensive_investigation(target_info)
                 
             except KeyboardInterrupt:
                 self.console.print("\n  [red]Investigation interrupted[/red]")
@@ -714,6 +918,263 @@ class HCSOAgent:
                 break
             except Exception as e:
                 self.console.print(f"  [bright_red]Error: {str(e)}[/bright_red]")
+    
+    async def run_comprehensive_investigation(self, target_info: str):
+        """Run comprehensive investigation based on all provided target information"""
+        self.console.print(f"\n  [bold red]Analyzing Provided Information[/bold red]")
+        self.console.print("  " + "─" * 78)
+        
+        # Extract structured data from the provided information using AI
+        extracted_data = await self.extract_target_data(target_info)
+        
+        if not extracted_data:
+            self.console.print("  [yellow]Could not extract actionable intelligence from provided information[/yellow]")
+            return
+            
+        # Display extracted intelligence
+        self.display_extracted_intelligence(extracted_data)
+        
+        # Create investigation state with comprehensive data
+        investigation = InvestigationState(
+            target=target_info[:50] + "..." if len(target_info) > 50 else target_info,
+            target_type="comprehensive",
+            findings=[],
+            investigation_chain=[]
+        )
+        self.current_investigation = investigation
+        
+        # Execute investigations based on extracted data
+        await self.execute_comprehensive_investigations(investigation, extracted_data)
+        
+        # AI agent loop for additional analysis
+        max_iterations = 3
+        iteration = 0
+        
+        while iteration < max_iterations and not self.agent.interrupted:
+            self.console.print(f"\n  [bold red]AI Agent Analyzing Comprehensive Results...[/bold red]")
+            
+            decision = await self.agent.analyze_and_decide(investigation, self.tools)
+            
+            # Display AI analysis
+            analysis_panel = Panel(decision, title="AI Investigation Analysis", border_style="red")
+            from rich.console import Console
+            from io import StringIO
+            buffer = StringIO()
+            temp_console = Console(file=buffer, width=self.console.size.width - 2)
+            temp_console.print(analysis_panel)
+            panel_output = buffer.getvalue()
+            
+            for line in panel_output.split('\n'):
+                if line.strip():
+                    self.console.print(f"  {line}")
+            
+            self.console.print("  " + "─" * 60)
+            
+            if "complete" in decision.lower() or "finished" in decision.lower():
+                break
+            
+            if not Confirm.ask("\n  Continue with AI recommendation?"):
+                break
+            
+            recommendation_executed = await self._execute_ai_recommendation(decision, investigation)
+            
+            if not recommendation_executed:
+                self.console.print("  [yellow]Could not parse AI recommendation or tool not available[/yellow]")
+            
+            iteration += 1
+        
+        # Final comprehensive summary
+        self.display_final_summary(investigation)
+    
+    async def extract_target_data(self, target_info: str) -> Dict[str, List[str]]:
+        """Use AI to extract structured data from provided target information"""
+        if not self.agent.is_available():
+            # Fallback to simple regex extraction if AI unavailable
+            return self._simple_data_extraction(target_info)
+        
+        extraction_prompt = f"""
+Analyze the following target information and extract structured data for OSINT investigation.
+
+TARGET INFORMATION: {target_info}
+
+Extract and categorize the following types of information:
+
+1. REAL NAMES (first name, last name, full names - NOT usernames)
+2. USERNAMES (social media handles, online identities)  
+3. EMAIL ADDRESSES
+4. PHYSICAL ADDRESSES (street addresses, cities, states, countries)
+5. PHONE NUMBERS
+6. ORGANIZATIONS (companies, schools, groups)
+7. URLS/SOCIAL PROFILES
+8. OTHER IDENTIFIERS (employee IDs, account numbers, etc.)
+
+Return ONLY a JSON object in this exact format:
+{{
+  "names": ["John Smith", "Jane Doe"],
+  "usernames": ["johnsmith123", "j_doe"],
+  "emails": ["john@example.com"],
+  "addresses": ["123 Main St, City, State"],
+  "phones": ["+1-555-123-4567"],
+  "organizations": ["Acme Corp", "State University"],
+  "urls": ["https://linkedin.com/in/johnsmith"],
+  "identifiers": ["Employee ID: 12345"]
+}}
+
+Be precise and only extract clear, identifiable information. Do not speculate or infer.
+"""
+        
+        try:
+            response = requests.post(f"{self.agent.base_url}/api/generate",
+                                   json={
+                                       "model": self.agent.model,
+                                       "prompt": extraction_prompt,
+                                       "stream": False
+                                   }, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json().get("response", "")
+                # Extract JSON from response
+                import re
+                json_match = re.search(r'\{.*\}', result, re.DOTALL)
+                if json_match:
+                    try:
+                        return json.loads(json_match.group())
+                    except json.JSONDecodeError:
+                        pass
+            
+            # Fallback to simple extraction
+            return self._simple_data_extraction(target_info)
+            
+        except Exception as e:
+            self.console.print(f"  [yellow]AI extraction failed, using fallback: {str(e)}[/yellow]")
+            return self._simple_data_extraction(target_info)
+    
+    def _simple_data_extraction(self, target_info: str) -> Dict[str, List[str]]:
+        """Simple regex-based data extraction as fallback"""
+        import re
+        
+        extracted = {
+            "names": [],
+            "usernames": [],
+            "emails": [],
+            "addresses": [],
+            "phones": [],
+            "organizations": [],
+            "urls": [],
+            "identifiers": []
+        }
+        
+        # Extract emails
+        emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', target_info)
+        extracted["emails"] = emails
+        
+        # Extract URLs
+        urls = re.findall(r'https?://[^\s]+', target_info)
+        extracted["urls"] = urls
+        
+        # Extract phone numbers (basic patterns)
+        phones = re.findall(r'[\+]?[1-9]?[0-9]{7,15}', target_info)
+        extracted["phones"] = [p for p in phones if len(p) >= 7]
+        
+        # Simple name extraction (words that might be names)
+        words = target_info.split()
+        potential_names = []
+        for i in range(len(words) - 1):
+            if words[i][0].isupper() and words[i+1][0].isupper() and len(words[i]) > 2 and len(words[i+1]) > 2:
+                potential_names.append(f"{words[i]} {words[i+1]}")
+        extracted["names"] = potential_names[:3]  # Limit to 3 potential names
+        
+        return extracted
+    
+    def display_extracted_intelligence(self, extracted_data: Dict[str, List[str]]):
+        """Display the extracted intelligence in a formatted table"""
+        from rich.table import Table
+        
+        table = Table(title="Extracted Target Intelligence", title_style="bold red")
+        table.add_column("Data Type", style="bright_red", width=15)
+        table.add_column("Extracted Values", style="white")
+        
+        for data_type, values in extracted_data.items():
+            if values:  # Only show categories with data
+                display_name = data_type.replace("_", " ").title()
+                values_str = "\n".join(values) if len(values) <= 3 else "\n".join(values[:3]) + f"\n... and {len(values)-3} more"
+                table.add_row(display_name, values_str)
+        
+        self.print_with_padding(table)
+        self.console.print("  " + "─" * 60)
+    
+    async def execute_comprehensive_investigations(self, investigation: InvestigationState, extracted_data: Dict[str, List[str]]):
+        """Execute investigations based on all extracted data types"""
+        
+        # Investigate names with web search
+        for name in extracted_data.get("names", []):
+            if name.strip():
+                self.console.print(f"\n  [bold red]Investigating Name: {name}[/bold red]")
+                await self.execute_investigation_step(
+                    investigation,
+                    "duckduckgo_search",
+                    "web_search",
+                    {"query": f'"{name}"', "max_results": 10}
+                )
+        
+        # Investigate usernames with Sherlock
+        for username in extracted_data.get("usernames", []):
+            if username.strip() and "sherlock" in self.tools.available_tools:
+                self.console.print(f"\n  [bold red]Investigating Username: {username}[/bold red]")
+                await self.execute_investigation_step(
+                    investigation,
+                    "sherlock",
+                    "investigate_username",
+                    {"username": username}
+                )
+                
+                # Auto-scrape profiles if found
+                if (investigation.findings and 
+                    investigation.findings[-1]["result"].get("profile_urls") and
+                    "profile_scraper" in self.tools.available_tools):
+                    
+                    profile_urls = investigation.findings[-1]["result"]["profile_urls"]
+                    if profile_urls:
+                        self.console.print(f"\n  [bold red]Found {len(profile_urls)} profiles, scraping...[/bold red]")
+                        await self.execute_investigation_step(
+                            investigation,
+                            "profile_scraper",
+                            "scrape_sherlock_profiles",
+                            {"sherlock_results": profile_urls, "max_profiles": min(5, len(profile_urls))}
+                        )
+        
+        # Investigate emails with Mosint
+        for email in extracted_data.get("emails", []):
+            if email.strip() and "mosint" in self.tools.available_tools:
+                self.console.print(f"\n  [bold red]Investigating Email: {email}[/bold red]")
+                await self.execute_investigation_step(
+                    investigation,
+                    "mosint",
+                    "investigate_email",
+                    {"email": email}
+                )
+        
+        # Investigate organizations with web search
+        for org in extracted_data.get("organizations", []):
+            if org.strip():
+                self.console.print(f"\n  [bold red]Investigating Organization: {org}[/bold red]")
+                await self.execute_investigation_step(
+                    investigation,
+                    "duckduckgo_search",
+                    "web_search",
+                    {"query": f'"{org}"', "max_results": 8}
+                )
+        
+        # Analyze URLs with link analyzer
+        for url in extracted_data.get("urls", []):
+            if url.strip() and "link_analyzer" in self.tools.available_tools:
+                self.console.print(f"\n  [bold red]Analyzing URL: {url}[/bold red]")
+                await self.execute_investigation_step(
+                    investigation,
+                    "link_analyzer",
+                    "analyze_link",
+                    {"url": url}
+                )
 
 async def main():
     parser = argparse.ArgumentParser(description="HCSO - Hostile Command Suite OSINT Agent")
@@ -730,7 +1191,12 @@ async def main():
         await agent.run_interactive_mode()
     else:
         agent.display_banner()
-        await agent.run_agent_loop(args.target)
+        # For command line usage, use comprehensive investigation if target contains multiple types of info
+        if " " in args.target or "@" in args.target or "http" in args.target:
+            await agent.run_comprehensive_investigation(args.target)
+        else:
+            # Simple single target investigation (backward compatibility)
+            await agent.run_agent_loop(args.target)
 
 if __name__ == "__main__":
     asyncio.run(main())
