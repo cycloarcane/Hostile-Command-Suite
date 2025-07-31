@@ -418,7 +418,7 @@ class OllamaAgent:
 
 COMPREHENSIVE TOOL CAPABILITIES:
 - sherlock: Username investigation across 400+ social platforms
-- mosint: Email OSINT, breach data, domain analysis
+- mosint: Email OSINT and breach data (EMAIL ADDRESSES ONLY)
 - profile_scraper: Automatically runs after sherlock (don't suggest manually)
 - link_analyzer: Deep analysis of URLs, GitHub profiles, websites
 - duckduckgo_search: Web search for additional intelligence, news search
@@ -444,13 +444,19 @@ RECENT FINDINGS DETAIL:
 INTELLIGENT DECISION MATRIX:
 Based on discovered intelligence, consider these strategies:
 
-1. EMAIL ADDRESSES found → Use mosint for breach/domain analysis
+1. EMAIL ADDRESSES found → Use mosint for breach analysis (EMAILS ONLY - NOT domains/usernames)
 2. NEW USERNAMES found → Use sherlock for additional platform discovery  
 3. INTERESTING URLs found → Use link_analyzer for deep content analysis
 4. NAMES/ORGANIZATIONS found → Use duckduckgo_search for web intelligence
 5. SOCIAL MEDIA PROFILES found → Check if worth deeper analysis
 6. TECHNICAL INDICATORS → Search for additional context
 7. If comprehensive intelligence gathered → Mark COMPLETE
+
+CRITICAL TOOL RESTRICTIONS:
+- NEVER use mosint with domains, usernames, or names  
+- ONLY use mosint when actual email addresses are discovered
+- For usernames like 'cycloarcane', use sherlock or duckduckgo_search
+- For domains like 'tiktok.com', use duckduckgo_search or link_analyzer
 
 SEARCH INTELLIGENCE OPPORTUNITIES:
 - Target name + location for news/records
