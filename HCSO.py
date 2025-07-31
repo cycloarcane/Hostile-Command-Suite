@@ -13,6 +13,7 @@ import os
 import sys
 import yaml
 import signal
+import readline
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,7 +23,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm
 from rich import print as rprint
 
 # ASCII Banner
@@ -580,6 +581,21 @@ class HCSOAgent:
             for line in lines:
                 self.console.print(f"{padding}{line}")
     
+    def get_user_input(self, prompt: str) -> str:
+        """Get user input with proper readline support for backspace handling"""
+        # Configure readline for better input handling
+        readline.parse_and_bind('tab: complete')
+        readline.parse_and_bind('set editing-mode emacs')
+        
+        # Print the prompt using Rich formatting
+        self.console.print(prompt, end="")
+        
+        try:
+            # Use raw input with readline support
+            return input().strip()
+        except (EOFError, KeyboardInterrupt):
+            return 'quit'
+    
     def display_banner(self):
         """Display the HCSO banner"""
         self.console.print(BANNER, style="bold red")
@@ -899,8 +915,7 @@ class HCSOAgent:
                 self.console.print("  [dim]Provide ALL available information about your target for intelligent analysis[/dim]")
                 self.console.print("  [dim]Include: names, usernames, emails, addresses, organizations, social profiles, etc.[/dim]")
                 
-                target_info = Prompt.ask("\n  [bold red]Enter ALL target information (or 'quit')[/bold red]", 
-                                       default="").strip()
+                target_info = self.get_user_input("\n  [bold red]Enter ALL target information (or 'quit')[/bold red] (): ")
                 
                 if target_info.lower() in ['quit', 'exit', 'q']:
                     self.console.print("  [red]Goodbye![/red]")
