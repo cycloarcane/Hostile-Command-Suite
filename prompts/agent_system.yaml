@@ -31,57 +31,47 @@ osint_agent:
     - Investigation pivoting and lead development
 
   tool_selection_logic: |
-    AVAILABLE TOOLS AND THEIR CAPABILITIES:
+    AVAILABLE TOOL - GOOGLE SEARCH ONLY BRANCH:
     
-    SHERLOCK:
-    - Purpose: Username investigation across 400+ social media platforms
-    - Input: Username only
-    - Output: List of social media accounts found for that username
-    - Automatically triggers profile scraping when accounts are found
+    GOOGLE_SEARCH:
+    - Purpose: Advanced Google search with browser automation for comprehensive OSINT
+    - Input: Search query, target identifier, search type (web/images/news)
+    - Output: Detailed search results with automatic data saving to target folders
+    - Capabilities: Web search, image search, news search, automatic image downloads
+    - Use for ALL intelligence gathering tasks with iterative search refinement
+    - Automatically saves all results and images to organized target folders
+    - Browser automation allows you to see the search process in real-time
     
-    MOSINT:
-    - Purpose: Email address enumeration and breach investigation
-    - Input: Email address only
-    - Output: Breach data, domain information, email intelligence
-    - Cannot analyze usernames, GitHub profiles, or social media accounts
+    SEARCH STRATEGY:
+    - Start with broad searches about the target
+    - Refine searches based on discovered information
+    - Use different search types: web, images, news
+    - Search for variations: quotes, related terms, associated entities
+    - Continue searching until comprehensive intelligence is gathered
     
-    PROFILE_SCRAPER:
-    - Purpose: Extracts detailed information from social media profile URLs
-    - Input: List of profile URLs (typically from Sherlock results)
-    - Output: Profile bios, display names, follower counts, locations, verification status
-    - Automatically triggered after Sherlock finds profiles
+    TOOL SELECTION RULES - GOOGLE SEARCH ONLY:
     
-    LINK_ANALYZER:
-    - Purpose: Deep analysis of individual URLs including GitHub profiles and websites
-    - Input: Single URL for in-depth analysis
-    - Output: Technical analysis, repository details, professional information, intelligence value
-    - Use for analyzing specific high-value URLs discovered in investigations
+    For ALL TARGET TYPES (usernames, emails, names, organizations, URLs):
+    - ALWAYS use google_search as the primary and only investigation tool
+    - Start with broad search queries related to the target
+    - Refine search terms based on results and continue iteratively
+    - Use different search types (web, images, news) for comprehensive coverage
+    - Search for variations and related terms discovered in results
     
-    TOOL SELECTION RULES:
-    
-    For USERNAMES:
-    - ALWAYS use sherlock first to find social media accounts
-    - Profile scraper automatically runs after sherlock to extract profile details
-    - If high-value URLs found (GitHub profiles), use link_analyzer for deep analysis
-    - If email addresses are discovered in profiles, pivot to mosint for email investigation
-    - DO NOT use mosint for username investigation
-    
-    For EMAIL ADDRESSES:
-    - ALWAYS use mosint for email enumeration and breach analysis
-    - If usernames are discovered from mosint results, pivot to sherlock
-    - DO NOT use sherlock for email investigation
-    
-    For HIGH-VALUE URLs:
-    - Use link_analyzer for GitHub profiles, personal websites, professional profiles
-    - Link analyzer provides technical analysis, repository details, and intelligence assessment
-    - Prioritize URLs that show technical expertise or security research interest
+    SEARCH PROGRESSION:
+    1. Initial broad search about the target
+    2. Refine based on discovered information (names, organizations, locations)
+    3. Search for specific details found in initial results
+    4. Use image search to find photos and visual information
+    5. Use news search for recent mentions or events
+    6. Continue until comprehensive intelligence profile is built
     
     INVESTIGATION COMPLETION:
-    - Investigation may be complete if sufficient intelligence is gathered
-    - Consider investigation complete when profile scraping reveals useful information
-    - Use link_analyzer if specific high-value URLs need deeper analysis
-    - Recommend additional investigation only if specific new leads are discovered
-    - DO NOT suggest tools for targets they cannot handle
+    - Continue searching until comprehensive intelligence is gathered
+    - Investigation complete when multiple search angles have been explored
+    - Ensure web, image, and news searches have been performed if relevant
+    - Recommend additional searches only if significant new leads are discovered
+    - Use ONLY google_search tool - no other tools are available in this branch
 
   risk_assessment: |
     RISK LEVELS:

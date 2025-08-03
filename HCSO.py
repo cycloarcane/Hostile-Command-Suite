@@ -113,51 +113,61 @@ class MCPToolManager:
         self.check_available_tools()
     
     def check_available_tools(self):
-        """Check which MCP tools are available"""
+        """Check which MCP tools are available - Google Search Only Branch"""
         tools_dir = Path("mcp_tools")
         
-        # Check for sherlock server
-        sherlock_server = tools_dir / "sherlock_server.py"
-        if sherlock_server.exists():
-            self.available_tools['sherlock'] = {
-                'server_path': str(sherlock_server),
-                'description': 'Username investigation across 400+ platforms',
-                'target_types': ['username']
-            }
+        # DISABLED OTHER TOOLS FOR GOOGLE-ONLY BRANCH
+        # # Check for sherlock server
+        # sherlock_server = tools_dir / "sherlock_server.py"
+        # if sherlock_server.exists():
+        #     self.available_tools['sherlock'] = {
+        #         'server_path': str(sherlock_server),
+        #         'description': 'Username investigation across 400+ platforms',
+        #         'target_types': ['username']
+        #     }
         
-        # Check for mosint server  
-        mosint_server = tools_dir / "mosint_server.py"
-        if mosint_server.exists():
-            self.available_tools['mosint'] = {
-                'server_path': str(mosint_server),
-                'description': 'Email OSINT and breach investigation',
-                'target_types': ['email']
-            }
+        # # Check for mosint server  
+        # mosint_server = tools_dir / "mosint_server.py"
+        # if mosint_server.exists():
+        #     self.available_tools['mosint'] = {
+        #         'server_path': str(mosint_server),
+        #         'description': 'Email OSINT and breach investigation',
+        #         'target_types': ['email']
+        #     }
         
-        # Check for profile scraper server
-        profile_scraper_server = tools_dir / "profile_scraper_server.py"
-        if profile_scraper_server.exists():
-            self.available_tools['profile_scraper'] = {
-                'server_path': str(profile_scraper_server),
-                'description': 'Scrape profiles from Sherlock results for additional intelligence',
-                'target_types': ['urls']
-            }
+        # # Check for profile scraper server
+        # profile_scraper_server = tools_dir / "profile_scraper_server.py"
+        # if profile_scraper_server.exists():
+        #     self.available_tools['profile_scraper'] = {
+        #         'server_path': str(profile_scraper_server),
+        #         'description': 'Scrape profiles from Sherlock results for additional intelligence',
+        #         'target_types': ['urls']
+        #     }
         
-        # Check for link analyzer server
-        link_analyzer_server = tools_dir / "link_analyzer_server.py"
-        if link_analyzer_server.exists():
-            self.available_tools['link_analyzer'] = {
-                'server_path': str(link_analyzer_server),
-                'description': 'Deep analysis of URLs including GitHub profiles and web content',
-                'target_types': ['urls']
-            }
+        # # Check for link analyzer server
+        # link_analyzer_server = tools_dir / "link_analyzer_server.py"
+        # if link_analyzer_server.exists():
+        #     self.available_tools['link_analyzer'] = {
+        #         'server_path': str(link_analyzer_server),
+        #         'description': 'Deep analysis of URLs including GitHub profiles and web content',
+        #         'target_types': ['urls']
+        #     }
         
-        # Check for DuckDuckGo search server
-        duckduckgo_server = tools_dir / "duckduckgo_server.py"
-        if duckduckgo_server.exists():
-            self.available_tools['duckduckgo_search'] = {
-                'server_path': str(duckduckgo_server),
-                'description': 'Web search for OSINT intelligence gathering',
+        # # Check for DuckDuckGo search server
+        # duckduckgo_server = tools_dir / "duckduckgo_server.py"
+        # if duckduckgo_server.exists():
+        #     self.available_tools['duckduckgo_search'] = {
+        #         'server_path': str(duckduckgo_server),
+        #         'description': 'Web search for OSINT intelligence gathering',
+        #         'target_types': ['any']
+        #     }
+        
+        # Check for Google search server - PRIMARY TOOL
+        google_search_server = tools_dir / "google_search_server.py"
+        if google_search_server.exists():
+            self.available_tools['google_search'] = {
+                'server_path': str(google_search_server),
+                'description': 'Advanced Google search with browser automation and data saving',
                 'target_types': ['any']
             }
     
@@ -167,24 +177,19 @@ class MCPToolManager:
             return {"error": f"Tool {tool_name} not available"}
         
         try:
-            # For now, simulate MCP calls by running the tools directly
-            # In a full implementation, this would use proper MCP protocol
+            # Google Search Only Branch - Simplified tool routing
             server_path = self.available_tools[tool_name]['server_path']
             
-            if tool_name == 'sherlock' and method == 'investigate_username':
-                return await self._call_sherlock(arguments.get('username'))
-            elif tool_name == 'mosint' and method == 'investigate_email':
-                return await self._call_mosint(arguments.get('email'))
-            elif tool_name == 'profile_scraper' and method == 'scrape_sherlock_profiles':
-                return await self._call_profile_scraper(arguments.get('sherlock_results', []), arguments.get('max_profiles', 5))
-            elif tool_name == 'link_analyzer' and method == 'analyze_link':
-                return await self._call_link_analyzer(arguments.get('url'))
-            elif tool_name == 'duckduckgo_search' and method == 'web_search':
-                return await self._call_duckduckgo_search(arguments.get('query'), arguments.get('max_results', 10))
-            elif tool_name == 'duckduckgo_search' and method == 'news_search':
-                return await self._call_duckduckgo_news(arguments.get('query'), arguments.get('max_results', 10))
+            if tool_name == 'google_search' and method == 'search':
+                return await self._call_google_search(
+                    query=arguments.get('query'),
+                    target=arguments.get('target'),
+                    max_results=arguments.get('max_results', 10),
+                    search_type=arguments.get('search_type', 'web'),
+                    include_images=arguments.get('include_images', True)
+                )
             else:
-                return {"error": f"Unknown method {method} for tool {tool_name}"}
+                return {"error": f"Only Google search is available in this branch. Unknown method {method} for tool {tool_name}"}
                 
         except Exception as e:
             return {"error": f"Tool call failed: {str(e)}"}
@@ -365,6 +370,117 @@ class MCPToolManager:
             
         except Exception as e:
             return {"tool": "duckduckgo_search", "status": "error", "error": str(e)}
+    
+    async def _call_google_search(self, query: str, target: str, max_results: int = 10, search_type: str = "web", include_images: bool = True) -> Dict[str, Any]:
+        """Call Google search tool directly with browser automation"""
+        try:
+            # Import the Google search server
+            import sys
+            sys.path.append('mcp_tools')
+            from google_search_server import check_selenium_available, setup_chrome_driver, extract_web_results, extract_image_results, save_target_data
+            
+            if not check_selenium_available():
+                return {"tool": "google_search", "status": "error", "error": "Selenium not available. Please install selenium and chromedriver."}
+            
+            # Setup and execute Google search
+            driver = setup_chrome_driver(headless=False)
+            results = []
+            
+            try:
+                import urllib.parse
+                import time
+                
+                # Construct Google search URL
+                if search_type == "images":
+                    search_url = f"https://www.google.com/search?tbm=isch&q={urllib.parse.quote(query)}"
+                elif search_type == "news":
+                    search_url = f"https://www.google.com/search?tbm=nws&q={urllib.parse.quote(query)}"
+                else:
+                    search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+                
+                print(f"🌐 Opening Google search for: {query}")
+                driver.get(search_url)
+                print("⏳ Waiting for page to load...")
+                time.sleep(4)
+                
+                try:
+                    # Accept cookies if prompted
+                    from selenium.webdriver.common.by import By
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    from selenium.common.exceptions import TimeoutException
+                    
+                    accept_button = WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Accept') or contains(text(), 'I agree')]"))
+                    )
+                    accept_button.click()
+                    print("🍪 Accepted cookies")
+                    time.sleep(2)
+                except TimeoutException:
+                    print("ℹ️  No cookie banner found")
+                    pass  # No cookie banner
+                
+                # Extract results
+                print("🔍 Extracting search results...")
+                if search_type == "images":
+                    results = extract_image_results(driver, max_results)
+                else:
+                    results = extract_web_results(driver, max_results)
+                
+                print(f"✅ Found {len(results)} results!")
+                
+                # Save data to target folders
+                if results:
+                    # Format results for saving
+                    text_content = f"Google {search_type.title()} Search Results\n"
+                    text_content += f"Query: {query}\n"
+                    text_content += f"Target: {target}\n"
+                    text_content += f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    text_content += f"Results: {len(results)}\n"
+                    text_content += "=" * 50 + "\n\n"
+                    
+                    for i, result in enumerate(results, 1):
+                        text_content += f"{i}. {result.get('title', 'No title')}\n"
+                        text_content += f"URL: {result.get('url', result.get('source_url', 'No URL'))}\n"
+                        if result.get('snippet'):
+                            text_content += f"Description: {result['snippet']}\n"
+                        if result.get('image_url'):
+                            text_content += f"Image URL: {result['image_url']}\n"
+                        text_content += "-" * 30 + "\n\n"
+                    
+                    # Save text results
+                    save_target_data(target, "text", text_content)
+                    
+                    # Save metadata
+                    metadata = {
+                        "query": query,
+                        "search_type": search_type,
+                        "timestamp": int(time.time()),
+                        "results_count": len(results),
+                        "target": target
+                    }
+                    save_target_data(target, "metadata", "", metadata)
+                    
+                return {
+                    "tool": "google_search",
+                    "search_type": search_type,
+                    "query": query,
+                    "target": target,
+                    "status": "success",
+                    "results_count": len(results),
+                    "results": results,
+                    "investigation_summary": f"Found {len(results)} {search_type} results for '{query}' (target: {target})",
+                    "data_saved": True
+                }
+                
+            finally:
+                print("⏳ Keeping browser open for 5 seconds so you can see the results...")
+                time.sleep(5)
+                driver.quit()
+                print("🔒 Browser closed")
+                
+        except Exception as e:
+            return {"tool": "google_search", "status": "error", "error": str(e)}
 
 class OllamaAgent:
     """Intelligent OSINT agent powered by local ollama"""
@@ -687,6 +803,13 @@ class HCSOAgent:
                 table.add_row("Search Type", result.get("search_type", ""))
                 table.add_row("Results Found", str(result.get("results_count", 0)))
                 table.add_row("Status", "[green]Success[/green]")
+            elif tool == "google_search":
+                table.add_row("Query", result.get("query", ""))
+                table.add_row("Target", result.get("target", ""))
+                table.add_row("Search Type", result.get("search_type", ""))
+                table.add_row("Results Found", str(result.get("results_count", 0)))
+                table.add_row("Data Saved", "[green]Yes[/green]" if result.get("data_saved") else "[red]No[/red]")
+                table.add_row("Status", "[green]Success[/green]")
             
             # Render table with manual padding
             from rich.console import Console
@@ -728,36 +851,30 @@ class HCSOAgent:
         investigation = await self.start_investigation(target)
         self.current_investigation = investigation
         
-        # Initial tool selection based on target type
-        if investigation.target_type == "username" and "sherlock" in self.tools.available_tools:
+        # Google Search Only Branch - Always use Google search for all target types
+        if "google_search" in self.tools.available_tools:
+            # Determine initial search query based on target type
+            if investigation.target_type == "username":
+                search_query = f'"{target}" username profile social media'
+            elif investigation.target_type == "email":
+                search_query = f'"{target}" email contact information'
+            elif investigation.target_type == "comprehensive":
+                search_query = target  # Use the full target info as provided
+            else:
+                search_query = f'"{target}" information profile'
+            
+            self.console.print(f"\n  [bold red]🌐 Starting Google Search Investigation for: {target}[/bold red]")
             await self.execute_investigation_step(
                 investigation, 
-                "sherlock", 
-                "investigate_username", 
-                {"username": target}
-            )
-            
-            # If sherlock found profiles and profile scraper is available, automatically scrape them
-            if (investigation.findings and 
-                investigation.findings[-1]["result"].get("profile_urls") and
-                "profile_scraper" in self.tools.available_tools):
-                
-                profile_urls = investigation.findings[-1]["result"]["profile_urls"]
-                if profile_urls:
-                    self.console.print(f"\n  [bold red]Found {len(profile_urls)} profiles, scraping for additional intelligence...[/bold red]")
-                    await self.execute_investigation_step(
-                        investigation,
-                        "profile_scraper",
-                        "scrape_sherlock_profiles",
-                        {"sherlock_results": profile_urls, "max_profiles": min(5, len(profile_urls))}
-                    )
-            
-        elif investigation.target_type == "email" and "mosint" in self.tools.available_tools:
-            await self.execute_investigation_step(
-                investigation,
-                "mosint", 
-                "investigate_email",
-                {"email": target}
+                "google_search", 
+                "search", 
+                {
+                    "query": search_query,
+                    "target": target,
+                    "max_results": 10,
+                    "search_type": "web",
+                    "include_images": True
+                }
             )
         
         # Agent decision loop
@@ -823,48 +940,29 @@ class HCSOAgent:
             
             # Check if tool is available
             if tool not in self.tools.available_tools:
-                self.console.print(f"  [red]Tool '{tool}' not available[/red]")
+                self.console.print(f"  [red]Tool '{tool}' not available. Only Google search is available in this branch.[/red]")
                 return False
             
-            # Execute based on tool type
-            if tool == "sherlock" and target:
-                await self.execute_investigation_step(
-                    investigation,
-                    "sherlock",
-                    "investigate_username",
-                    {"username": target}
-                )
-                return True
+            # Execute Google search (only available tool)
+            if tool == "google_search" and target:
+                # Determine search type (web, images, news) based on context
+                search_type = "web"  # Default to web search
+                if "image" in target.lower() or "photo" in target.lower():
+                    search_type = "images"
+                elif "news" in target.lower() or "recent" in target.lower():
+                    search_type = "news"
                 
-            elif tool == "mosint" and target:
                 await self.execute_investigation_step(
                     investigation,
-                    "mosint",
-                    "investigate_email",
-                    {"email": target}
-                )
-                return True
-                
-            elif tool == "link_analyzer" and target:
-                await self.execute_investigation_step(
-                    investigation,
-                    "link_analyzer",
-                    "analyze_link",
-                    {"url": target}
-                )
-                return True
-                
-            elif tool == "duckduckgo_search" and target:
-                # Determine if it should be web search or news search based on context
-                search_type = "web_search"  # Default to web search
-                if "news" in target.lower() or "recent" in target.lower():
-                    search_type = "news_search"
-                    
-                await self.execute_investigation_step(
-                    investigation,
-                    "duckduckgo_search",
-                    search_type,
-                    {"query": target, "max_results": 10}
+                    "google_search",
+                    "search",
+                    {
+                        "query": target, 
+                        "target": investigation.target,
+                        "max_results": 10,
+                        "search_type": search_type,
+                        "include_images": True
+                    }
                 )
                 return True
             
